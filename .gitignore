@@ -1,0 +1,9 @@
+node_modules
+dist
+.DS_Store
+*.local
+.freebuff
+.cloud-attachments
+threads
+.env
+.env.*
