@@ -54,7 +54,7 @@ export default function Overview({ assets, dataset, settings, navigate, onSelect
     <div className="fade-in">
       <PageHeader
         title="Fleet overview"
-        description={`Live view of ${assets.length} assets from “${dataset.fileName}”. Every number below is derived from the uploaded worksheet.`}
+        description={`Live view of ${assets.length} assessed assets from “${dataset.fileName}”. Every number below is derived from the stored assessment records.`}
         actions={
           <>
             <button type="button" className="btn" onClick={() => navigate('reports')}>
@@ -77,7 +77,7 @@ export default function Overview({ assets, dataset, settings, navigate, onSelect
         </div>
       ) : null}
 
-      <SectionTitle hint={`Browser data · imported ${formatDate(dataset.importedAt)}`}>Asset distribution</SectionTitle>
+      <SectionTitle hint={`Database · updated ${formatDate(dataset.importedAt)}`}>Asset distribution</SectionTitle>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <ChartFrame title="Asset distribution" subtitle="Asset count by category" height={276}>
           {categories.length ? (

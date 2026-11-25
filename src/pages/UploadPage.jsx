@@ -1,47 +1,72 @@
-import { FileSpreadsheet, ShieldCheck, Sparkles } from 'lucide-react'
-import UploadPanel from '../components/UploadPanel'
+import { useCallback, useEffect, useState } from 'react'
+import { FileSpreadsheet, History, ShieldCheck, Sparkles } from 'lucide-react'
+import ImportPanel from '../components/ImportPanel'
 import { Card, CardHeader, PageHeader } from '../components/ui'
-import { formatDate } from '../lib/format'
+import { api } from '../lib/api'
+import { useAuth } from '../auth/AuthContext'
 import { ASSET_FIELDS } from '../lib/fields'
 
-export default function UploadPage({ dataset, settings, onImport, notify, onRemoveDataset }) {
+export default function UploadPage({ onImported, notify }) {
+  const { isAdmin } = useAuth()
+  const [imports, setImports] = useState([])
+
+  const loadImports = useCallback(async () => {
+    if (!isAdmin) return
+    try {
+      const data = await api.get('/assessments/imports')
+      setImports(data.items)
+    } catch {
+      setImports([])
+    }
+  }, [isAdmin])
+
+  useEffect(() => {
+    loadImports()
+  }, [loadImports])
+
   return (
     <div className="fade-in">
       <PageHeader
         title="Excel upload"
-        description="Import an asset register, verify the detected columns, then build the dashboard from your data. Existing dashboards update instantly."
+        description="Import an assessment register, check every row against the validation rules, then save it to the database. Dashboards and analytics update from the stored records."
       />
 
       <div className="grid gap-4 xl:grid-cols-[1.7fr_1fr] xl:items-start">
         <div>
-          <UploadPanel currentDataset={dataset} onImport={onImport} notify={notify} />
+          <ImportPanel
+            notify={notify}
+            onImported={() => {
+              loadImports()
+              onImported?.()
+            }}
+          />
         </div>
 
         <div className="space-y-4">
           <Card>
-            <CardHeader title="What gets detected" subtitle="Column headings are matched to these fields" />
+            <CardHeader title="What gets detected" subtitle="Headings matched to validated fields" />
             <div className="p-5">
               <div className="flex flex-wrap gap-1.5">
                 {ASSET_FIELDS.map((field) => (
                   <span key={field.key} className="badge">
                     {field.label}
+                    {field.key === 'assessmentDate' ? ' *' : ''}
                   </span>
                 ))}
               </div>
               <p className="mt-3 text-[11.5px] leading-relaxed faint">
-                Unknown columns are kept in the asset record and shown in the detail drawer, so no source information is lost. Mapping is manual only where the heading
-                differs from common naming.
+                Assessment Date and Asset ID (or Serial Number) are mandatory. Rows missing either are listed as invalid and are never written to the database.
               </p>
             </div>
           </Card>
 
           <Card>
-            <CardHeader title="Processing rules" subtitle="Built for unfamiliar workbooks" />
+            <CardHeader title="Import rules" subtitle="Applied on the server for uploads and manual entry" />
             <div className="space-y-3 p-5">
               {[
-                { icon: Sparkles, title: 'Header row detection', text: 'The header row is located even when the sheet starts with titles or merged rows.' },
-                { icon: FileSpreadsheet, title: 'Worksheet selection', text: 'Every sheet is listed with its row count; the richest asset sheet is selected first.' },
-                { icon: ShieldCheck, title: 'Local only', text: 'Files never leave the browser. The last dataset is remembered in LocalStorage.' },
+                { icon: Sparkles, title: 'Assessment date is the source of truth', text: 'Year and quarter come from the record date, never from the upload or creation date.' },
+                { icon: ShieldCheck, title: 'No silent corrections', text: 'Missing or unreadable dates are flagged for correction instead of being given an invented quarter.' },
+                { icon: FileSpreadsheet, title: 'Duplicates are blocked', text: 'The same asset assessed on the same date is rejected on import and on manual entry.' },
               ].map((item) => {
                 const Icon = item.icon
                 return (
@@ -59,33 +84,18 @@ export default function UploadPage({ dataset, settings, onImport, notify, onRemo
             </div>
           </Card>
 
-          {dataset ? (
+          {isAdmin && imports.length ? (
             <Card>
-              <CardHeader title="Current dataset" subtitle={`${dataset.fileName} · ${formatDate(dataset.importedAt)}`} />
-              <div className="p-5 pt-2 text-[12px]">
-                <div className="flex justify-between border-b py-2">
-                  <span className="faint">Worksheet</span>
-                  <span className="font-medium">{dataset.sheetName}</span>
-                </div>
-                <div className="flex justify-between border-b py-2">
-                  <span className="faint">Assets loaded</span>
-                  <span className="mono font-medium">{dataset.rows.length}</span>
-                </div>
-                <div className="flex justify-between border-b py-2">
-                  <span className="faint">Columns mapped</span>
-                  <span className="mono font-medium">{Object.keys(dataset.mapping).length}</span>
-                </div>
-                <div className="flex justify-between border-b py-2">
-                  <span className="faint">Ticket sheet</span>
-                  <span className="font-medium">{dataset.tickets?.sheetName || 'not detected'}</span>
-                </div>
-                <div className="flex justify-between py-2">
-                  <span className="faint">Maintenance sheet</span>
-                  <span className="font-medium">{dataset.maintenance?.sheetName || 'not detected'}</span>
-                </div>
-                <button type="button" className="btn btn-sm mt-3 w-full" onClick={onRemoveDataset} style={{ color: 'var(--red)' }}>
-                  Remove saved dataset
-                </button>
+              <CardHeader title="Import history" subtitle="Most recent first" action={<History size={14} className="faint" />} />
+              <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
+                {imports.slice(0, 8).map((item) => (
+                  <div key={item.id} className="px-4 py-2.5">
+                    <div className="truncate text-[12px] font-medium" title={item.fileName}>{item.fileName}</div>
+                    <div className="mt-0.5 text-[11px] faint">
+                      {new Date(item.createdAt).toLocaleString('en-GB')} · {item.importedCount} imported · {item.duplicateCount} duplicates · {item.invalidCount} invalid
+                    </div>
+                  </div>
+                ))}
               </div>
             </Card>
           ) : null}

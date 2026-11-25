@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import { ASSET_FIELDS, MAINTENANCE_FIELDS, TICKET_FIELDS, detectMapping, mappedFieldCount, normalizeHeader } from './fields'
+import { ASSET_FIELDS, MAINTENANCE_FIELDS, TICKET_FIELDS, detectMapping, mappedFieldCount, normalizeHeader } from './fields.js'
 
 const MAX_HEADER_SCAN = 12
 

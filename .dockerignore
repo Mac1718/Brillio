@@ -1,0 +1,12 @@
+node_modules
+dist
+data
+.git
+.gitignore
+.freebuff
+.cloud-attachments
+threads
+.env
+.env.*
+*.log
+.DS_Store

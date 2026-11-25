@@ -1,6 +1,6 @@
 import { Database, Menu, Moon, Sun, UploadCloud } from 'lucide-react'
 
-export default function Topbar({ title, dataset, theme, onToggleTheme, onMenu, onUpload }) {
+export default function Topbar({ title, dataset, theme, onToggleTheme, onMenu, onUpload, user }) {
   return (
     <header className="topbar no-print">
       <button type="button" className="icon-btn lg:hidden" onClick={onMenu} aria-label="Open navigation">
@@ -9,7 +9,9 @@ export default function Topbar({ title, dataset, theme, onToggleTheme, onMenu, o
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-semibold">{title}</div>
         <div className="hidden truncate text-[11px] faint sm:block">
-          {dataset ? `${dataset.sheetName} · ${dataset.rows.length} rows · imported ${new Date(dataset.importedAt).toLocaleDateString('en-GB')}` : 'Awaiting Excel upload'}
+          {dataset
+            ? `${dataset.recordCount ?? dataset.rows.length} records · ${dataset.mapping.assessmentDate != null ? 'assessment dates stored' : 'no assessment dates'}`
+            : 'No assessment records yet'}
         </div>
       </div>
 
@@ -22,13 +24,21 @@ export default function Topbar({ title, dataset, theme, onToggleTheme, onMenu, o
         </div>
       ) : null}
 
+      {user ? (
+        <div className="hidden items-center gap-2 sm:flex">
+          <span className="badge">{user.role === 'admin' ? 'Admin' : user.role === 'manager' ? 'Manager' : 'User'}</span>
+        </div>
+      ) : null}
+
       <button type="button" className="icon-btn" onClick={onToggleTheme} aria-label="Toggle theme" title="Toggle light / dark">
         {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
       </button>
-      <button type="button" className="btn btn-primary" onClick={onUpload}>
-        <UploadCloud size={15} />
-        <span className="hidden sm:inline">{dataset ? 'Replace data' : 'Upload Excel'}</span>
-      </button>
+      {onUpload ? (
+        <button type="button" className="btn btn-primary" onClick={onUpload}>
+          <UploadCloud size={15} />
+          <span className="hidden sm:inline">Upload Excel</span>
+        </button>
+      ) : null}
     </header>
   )
 }

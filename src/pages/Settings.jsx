@@ -150,7 +150,7 @@ export default function Settings({ settings, setSettings, dataset, theme, setThe
             <button type="button" className="btn btn-sm" onClick={downloadTemplate}>
               <Download size={13} /> Asset template
             </button>
-            {confirmRemove ? (
+            {!onRemoveDataset ? null : confirmRemove ? (
               <div className="flex items-center gap-2">
                 <span className="text-[11.5px]" style={{ color: 'var(--red)' }}>
                   Remove the saved dataset?
@@ -187,10 +187,10 @@ export default function Settings({ settings, setSettings, dataset, theme, setThe
         </Card>
       )}
 
-      <SectionTitle>Privacy</SectionTitle>
+      <SectionTitle>Data and access</SectionTitle>
       <MissingNotice>
-        Workbooks are parsed entirely in this browser. The latest dataset is stored in LocalStorage on this computer so it survives a refresh, and nothing is transmitted to a
-        server. Removing the saved dataset clears it from LocalStorage.
+        Workbooks are parsed and validated on the server, and saved records live in the application database. Uploaded files are kept in the configured upload directory for audit.
+        Your role ({`admin, manager or user`}) is checked by the API on every request, so interface changes cannot grant extra permissions.
       </MissingNotice>
     </div>
   )
