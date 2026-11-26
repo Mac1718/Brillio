@@ -130,7 +130,7 @@ export default function InventoryTable({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-[14px] font-semibold">{title}</h3>
+            <h3 className="text-[15px] font-semibold tracking-[-0.012em]">{title}</h3>
             <Badge>{filtered.length}</Badge>
           </div>
           <p className="mt-0.5 text-[11.5px] faint">

@@ -1,63 +1,14 @@
 import express from 'express'
-import crypto from 'node:crypto'
-import { config } from '../config.js'
 import { one, query } from '../db.js'
-import {
-  clearSessionCookie,
-  hashPassword,
-  rateLimit,
-  setSessionCookie,
-  signToken,
-  verifyPassword,
-  authenticate,
-} from '../auth.js'
-import { validateUser } from '../lib/validate.js'
+import { clearSessionCookie, hashPassword, rateLimit, setSessionCookie, signToken, verifyPassword, authenticate } from '../auth.js'
+import { cleanText } from '../lib/validate.js'
 
 const router = express.Router()
 
 const publicUser = (row) => ({ id: row.id, name: row.name, email: row.email, role: row.role })
 
-router.post('/signup', rateLimit(), async (req, res, next) => {
-  try {
-    const body = req.body || {}
-    const errors = validateUser({ name: body.name, email: body.email, password: body.password })
-    if (Object.keys(errors).length) return res.status(422).json({ error: 'Please correct the highlighted fields', fields: errors })
-
-    const email = String(body.email).trim().toLowerCase()
-    const existing = await one('SELECT id FROM users WHERE email = ?', [email])
-    if (existing) return res.status(409).json({ error: 'An account with this email already exists', fields: { email: 'Already registered' } })
-
-    const count = await one('SELECT COUNT(*) AS total FROM users')
-    const isFirstUser = Number(count?.total || 0) === 0
-    const isBootstrap = config.bootstrapAdminEmail && config.bootstrapAdminEmail === email
-    const role = isFirstUser || isBootstrap ? 'admin' : 'user'
-
-    const now = new Date().toISOString()
-    const user = {
-      id: crypto.randomUUID(),
-      name: String(body.name).trim(),
-      email,
-      password_hash: await hashPassword(String(body.password)),
-      role,
-      is_active: 1,
-      created_at: now,
-      updated_at: now,
-    }
-    await query(
-      `INSERT INTO users (id, name, email, password_hash, role, is_active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [user.id, user.name, user.email, user.password_hash, user.role, user.is_active, user.created_at, user.updated_at],
-    )
-
-    setSessionCookie(res, signToken(user))
-    res.status(201).json({
-      user: publicUser(user),
-      bootstrappedAdmin: role === 'admin',
-    })
-  } catch (error) {
-    next(error)
-  }
-})
+// Public registration is intentionally absent. Accounts are created only by an
+// authenticated administrator through POST /api/users.
 
 router.post('/login', rateLimit(), async (req, res, next) => {
   try {
@@ -86,6 +37,58 @@ router.post('/logout', (req, res) => {
 
 router.get('/me', authenticate, (req, res) => {
   res.json({ user: req.user })
+})
+
+// Self-service profile update. Email and role stay administrator-managed, so a
+// user can never grant themselves different access through this route.
+router.patch('/profile', authenticate, async (req, res, next) => {
+  try {
+    const name = cleanText(req.body?.name, 120)
+    if (!name) return res.status(422).json({ error: 'Enter your name', fields: { name: 'Enter your name' } })
+
+    await query('UPDATE users SET name = ?, updated_at = ? WHERE id = ?', [name, new Date().toISOString(), req.user.id])
+    const row = await one('SELECT * FROM users WHERE id = ?', [req.user.id])
+    if (!row) return res.status(404).json({ error: 'Account not found' })
+    res.json({ user: publicUser(row) })
+  } catch (error) {
+    next(error)
+  }
+})
+
+// Password changes always require the current password and the same policy as
+// administrator-created accounts.
+router.post('/change-password', authenticate, rateLimit({ max: 10 }), async (req, res, next) => {
+  try {
+    const currentPassword = String(req.body?.currentPassword || '')
+    const newPassword = String(req.body?.newPassword || '')
+    const confirmPassword = req.body?.confirmPassword === undefined ? newPassword : String(req.body.confirmPassword)
+
+    const errors = {}
+    if (!currentPassword) errors.currentPassword = 'Enter your current password'
+    if (!newPassword) errors.newPassword = 'Enter a new password'
+    else if (newPassword.length < 8) errors.newPassword = 'Use at least 8 characters'
+    else if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      errors.newPassword = 'Include at least one letter and one number'
+    }
+    if (confirmPassword !== newPassword) errors.confirmPassword = 'Passwords do not match'
+    if (newPassword && newPassword === currentPassword) errors.newPassword = 'Choose a password different from the current one'
+    if (Object.keys(errors).length) return res.status(422).json({ error: Object.values(errors)[0], fields: errors })
+
+    const user = await one('SELECT * FROM users WHERE id = ?', [req.user.id])
+    if (!user) return res.status(404).json({ error: 'Account not found' })
+    if (!(await verifyPassword(currentPassword, user.password_hash))) {
+      return res.status(422).json({ error: 'Current password is incorrect', fields: { currentPassword: 'Current password is incorrect' } })
+    }
+
+    await query('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?', [
+      await hashPassword(newPassword),
+      new Date().toISOString(),
+      req.user.id,
+    ])
+    res.json({ ok: true })
+  } catch (error) {
+    next(error)
+  }
 })
 
 export default router

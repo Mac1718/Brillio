@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ClipboardList, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { Badge, Card, CardHeader, EmptyState, PageHeader } from '../components/ui'
 import { api, toQueryString } from '../lib/api'
 import { useAuth } from '../auth/AuthContext'
@@ -31,9 +31,26 @@ const EMPTY_FORM = {
   processor: '',
   os: '',
   vendorName: '',
-  assessmentDate: '',
   assessmentStatus: 'Pending',
   notes: '',
+  costType: '',
+  projectId: '',
+  projectName: '',
+  memo: '',
+  bau: '',
+  remarks: '',
+  costQ1: '',
+  costQ2: '',
+  costQ3: '',
+  costQ4: '',
+  totalBudgetFy: '',
+  spendFy: '',
+  savings: '',
+  excess: '',
+  po: '',
+  poDate: '',
+  pr: '',
+  prDate: '',
 }
 
 const fromRecord = (record) => ({
@@ -60,9 +77,26 @@ const fromRecord = (record) => ({
   processor: record.processor || '',
   os: record.os || '',
   vendorName: record.vendorName || '',
-  assessmentDate: record.assessmentDate || '',
   assessmentStatus: record.assessmentStatus || 'Pending',
   notes: record.notes || '',
+  costType: record.costType || '',
+  projectId: record.projectId || '',
+  projectName: record.projectName || '',
+  memo: record.memo || '',
+  bau: record.bau || '',
+  remarks: record.remarks || '',
+  costQ1: record.costQ1 ?? '',
+  costQ2: record.costQ2 ?? '',
+  costQ3: record.costQ3 ?? '',
+  costQ4: record.costQ4 ?? '',
+  totalBudgetFy: record.totalBudgetFy ?? '',
+  spendFy: record.spendFy ?? '',
+  savings: record.savings ?? '',
+  excess: record.excess ?? '',
+  po: record.po || '',
+  poDate: record.poDate || '',
+  pr: record.pr || '',
+  prDate: record.prDate || '',
 })
 
 function AssessmentForm({ initial, vendors, onClose, onSaved, notify }) {
@@ -97,8 +131,8 @@ function AssessmentForm({ initial, vendors, onClose, onSaved, notify }) {
       <div className="modal modal-lg">
         <div className="modal-head">
           <div>
-            <h3>{isEdit ? 'Edit assessment' : 'New assessment'}</h3>
-            <p className="text-[11.5px] faint">The year and quarter are derived from the assessment date, never from the upload date.</p>
+            <h3>{isEdit ? 'Edit Assessment' : 'New Assessment'}</h3>
+            <p className="text-[11.5px] faint">PO Date is required and determines the financial year and quarter: Q1 Jan–Mar, Q2 Apr–Jun, Q3 Jul–Sep, Q4 Oct–Dec. Amounts are recorded in Indian Rupees (₹).</p>
           </div>
           <button type="button" className="btn btn-sm" onClick={onClose}>Close</button>
         </div>
@@ -112,10 +146,6 @@ function AssessmentForm({ initial, vendors, onClose, onSaved, notify }) {
             <label className="field">
               <span className="field-label">Serial number</span>
               <input className="input" value={form.serial} onChange={set('serial')} />
-            </label>
-            <label className="field">
-              <span className="field-label">Assessment date *</span>
-              <input className="input" type="date" value={form.assessmentDate} onChange={set('assessmentDate')} />
             </label>
             <label className="field">
               <span className="field-label">Assessment status</span>
@@ -214,6 +244,84 @@ function AssessmentForm({ initial, vendors, onClose, onSaved, notify }) {
               <span className="field-label">Notes</span>
               <textarea className="input textarea" rows={2} value={form.notes} onChange={set('notes')} />
             </label>
+
+            <div className="form-section-title span-2">Project &amp; Cost Centre</div>
+            <label className="field">
+              <span className="field-label">Cost Type</span>
+              <input className="input" value={form.costType} onChange={set('costType')} placeholder="CAPEX, OPEX, AMC…" />
+            </label>
+            <label className="field">
+              <span className="field-label">Project ID</span>
+              <input className="input" value={form.projectId} onChange={set('projectId')} placeholder="PRJ-001" />
+            </label>
+            <label className="field">
+              <span className="field-label">Project Name</span>
+              <input className="input" value={form.projectName} onChange={set('projectName')} />
+            </label>
+            <label className="field">
+              <span className="field-label">BAU</span>
+              <input className="input" value={form.bau} onChange={set('bau')} placeholder="Yes / No" />
+            </label>
+            <label className="field span-2">
+              <span className="field-label">Memo header/Description</span>
+              <input className="input" value={form.memo} onChange={set('memo')} />
+            </label>
+
+            <div className="form-section-title span-2">Financials — Reporting Year (from PO Date)</div>
+            <label className="field">
+              <span className="field-label">Cost Q1</span>
+              <input className="input" type="number" step="0.01" value={form.costQ1} onChange={set('costQ1')} />
+            </label>
+            <label className="field">
+              <span className="field-label">Cost Q2</span>
+              <input className="input" type="number" step="0.01" value={form.costQ2} onChange={set('costQ2')} />
+            </label>
+            <label className="field">
+              <span className="field-label">Cost Q3</span>
+              <input className="input" type="number" step="0.01" value={form.costQ3} onChange={set('costQ3')} />
+            </label>
+            <label className="field">
+              <span className="field-label">Cost Q4</span>
+              <input className="input" type="number" step="0.01" value={form.costQ4} onChange={set('costQ4')} />
+            </label>
+            <label className="field">
+              <span className="field-label">Total Budget FY</span>
+              <input className="input" type="number" step="0.01" value={form.totalBudgetFy} onChange={set('totalBudgetFy')} />
+            </label>
+            <label className="field">
+              <span className="field-label">Spend FY</span>
+              <input className="input" type="number" step="0.01" value={form.spendFy} onChange={set('spendFy')} />
+            </label>
+            <label className="field">
+              <span className="field-label">Savings</span>
+              <input className="input" type="number" step="0.01" value={form.savings} onChange={set('savings')} />
+            </label>
+            <label className="field">
+              <span className="field-label">Excess</span>
+              <input className="input" type="number" step="0.01" value={form.excess} onChange={set('excess')} />
+            </label>
+
+            <div className="form-section-title span-2">Procurement — PO Date sets the reporting year &amp; quarter</div>
+            <label className="field">
+              <span className="field-label">PO</span>
+              <input className="input" value={form.po} onChange={set('po')} placeholder="PO-000123" />
+            </label>
+            <label className="field">
+              <span className="field-label">PO Date *</span>
+              <input className="input" type="date" value={form.poDate} onChange={set('poDate')} />
+            </label>
+            <label className="field">
+              <span className="field-label">PR</span>
+              <input className="input" value={form.pr} onChange={set('pr')} placeholder="PR-000456" />
+            </label>
+            <label className="field">
+              <span className="field-label">PR Date</span>
+              <input className="input" type="date" value={form.prDate} onChange={set('prDate')} />
+            </label>
+            <label className="field span-2">
+              <span className="field-label">Remarks</span>
+              <textarea className="input textarea" rows={2} value={form.remarks} onChange={set('remarks')} />
+            </label>
           </div>
 
           {error ? <div className="auth-error">{error}</div> : null}
@@ -280,7 +388,7 @@ export default function Assessments({ notify, refreshKey = 0, onChanged }) {
   }
 
   const remove = async (record) => {
-    if (!window.confirm(`Delete the assessment for ${record.assetId || record.serial} on ${record.assessmentDate}?`)) return
+    if (!window.confirm(`Delete the assessment for ${record.assetId || record.serial || record.projectId || record.memo}?`)) return
     try {
       await api.delete(`/assessments/${record.id}`)
       notify?.('Assessment deleted')
@@ -299,8 +407,8 @@ export default function Assessments({ notify, refreshKey = 0, onChanged }) {
   return (
     <div className="fade-in">
       <PageHeader
-        title="Assessment records"
-        description="Every record with its assessment date, derived year and quarter. Admins can add, edit and delete; managers and staff see the same data read-only."
+        title="Assessment Records"
+        description="Every record with its PO Date and the financial year and quarter derived from it. Admins can add, edit and delete; managers and staff see the same data read-only."
         actions={
           isAdmin ? (
             <button type="button" className="btn btn-primary" onClick={() => setEditing({ ...EMPTY_FORM })}>
@@ -352,8 +460,8 @@ export default function Assessments({ notify, refreshKey = 0, onChanged }) {
         {!error && !loading && !items.length ? (
           <EmptyState
             icon={ClipboardList}
-            title={hasFilters ? 'No records match these filters' : 'No assessment records yet'}
-            description={hasFilters ? 'Adjust the filters or clear them to see all records.' : 'Import an Excel register with an Assessment Date column, or add the first record manually.'}
+            title={hasFilters ? 'No records match these filters' : 'No assessment records available'}
+            description={hasFilters ? 'Adjust the filters or clear them to see all records.' : 'Upload an Excel file to get started, or add the first record manually.'}
           />
         ) : null}
 
@@ -364,9 +472,9 @@ export default function Assessments({ notify, refreshKey = 0, onChanged }) {
                 <tr>
                   <th>Asset</th>
                   <th>Vendor</th>
-                  <th>Assessment date</th>
-                  <th>Year</th>
-                  <th>Quarter</th>
+                  <th>PO date</th>
+                  <th>Year (PO)</th>
+                  <th>Quarter (PO)</th>
                   <th>Status</th>
                   <th>Source</th>
                   {isAdmin ? <th className="text-right">Actions</th> : null}
@@ -376,9 +484,9 @@ export default function Assessments({ notify, refreshKey = 0, onChanged }) {
                 {items.map((record) => (
                   <tr key={record.id}>
                     <td>
-                      <div className="font-medium">{record.assetId || record.serial || '—'}</div>
-                      <div className="text-[11.5px] faint">
-                        {[record.name || record.category, record.department, record.location].filter(Boolean).join(' · ') || '—'}
+                      <div className="font-medium">{record.assetId || record.serial || record.projectId || record.memo || '—'}</div>
+                      <div className="max-w-[260px] truncate text-[11.5px] faint">
+                        {[record.projectName, record.name || record.category, record.department, record.location].filter(Boolean).join(' · ') || '—'}
                       </div>
                     </td>
                     <td>
@@ -386,7 +494,7 @@ export default function Assessments({ notify, refreshKey = 0, onChanged }) {
                       <div className="text-[11.5px] faint">{record.vendorCity || ''}</div>
                     </td>
                     <td className="mono">
-                      <span className="inline-flex items-center gap-1.5"><CalendarDays size={12} /> {record.assessmentDate || '—'}</span>
+                      {record.poDate || <Badge tone="amber">No PO Date</Badge>}
                     </td>
                     <td className="mono">{record.assessmentYear ?? '—'}</td>
                     <td><Badge tone="neutral">{record.assessmentQuarter || '—'}</Badge></td>

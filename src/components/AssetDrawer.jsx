@@ -149,7 +149,7 @@ export default function AssetDrawer({ asset, settings, onClose, onExport }) {
             if (!visible.length) return null
             return (
               <section key={group.title} className="mb-5">
-                <h3 className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.1em] faint">{group.title}</h3>
+                <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] faint">{group.title}</h3>
                 <DataList rows={visible} />
               </section>
             )

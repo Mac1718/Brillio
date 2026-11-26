@@ -55,7 +55,7 @@ export default function Reports({ assets, dataset, settings, tickets, notify, na
   const reportCards = [
     {
       icon: Table,
-      title: 'Asset inventory',
+      title: 'Asset Inventory',
       description: `${assets.length} assets with every mapped field — ready for Excel.`,
       action: 'Download inventory',
       onClick: () => {
@@ -65,7 +65,7 @@ export default function Reports({ assets, dataset, settings, tickets, notify, na
     },
     {
       icon: FileSpreadsheet,
-      title: 'Summary report',
+      title: 'Summary Report',
       description: 'Multi-sheet workbook: summary, department ledger, category counts, warranty and tickets.',
       action: 'Download summary',
       primary: true,
@@ -89,7 +89,7 @@ export default function Reports({ assets, dataset, settings, tickets, notify, na
     },
     {
       icon: Database,
-      title: 'Source workbook',
+      title: 'Source Workbook',
       description: 'A clean copy of the uploaded rows exactly as they were read.',
       action: 'Download source rows',
       onClick: () => {
@@ -99,14 +99,14 @@ export default function Reports({ assets, dataset, settings, tickets, notify, na
     },
     {
       icon: Printer,
-      title: 'Printable dashboard',
+      title: 'Printable Dashboard',
       description: 'Print or save as PDF using the browser print dialog. Sidebar and controls are hidden.',
       action: 'Print dashboard',
       onClick: () => window.print(),
     },
     {
       icon: FileSpreadsheet,
-      title: 'Blank template',
+      title: 'Blank Template',
       description: 'Starter sheet with the standard asset columns for future uploads.',
       action: 'Download template',
       onClick: downloadTemplate,
@@ -116,7 +116,7 @@ export default function Reports({ assets, dataset, settings, tickets, notify, na
   return (
     <div className="fade-in">
       <PageHeader
-        title="Reports &amp; export"
+        title="Reports &amp; Export"
         description="Everything on this page is calculated from the active dataset. Download workbooks or print the dashboard for review."
         actions={
           <button type="button" className="btn" onClick={() => window.print()}>
@@ -133,7 +133,7 @@ export default function Reports({ assets, dataset, settings, tickets, notify, na
               <span className="mb-3 grid h-9 w-9 place-items-center rounded-[9px]" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
                 <Icon size={16} />
               </span>
-              <h3 className="text-[13.5px] font-semibold">{card.title}</h3>
+              <h3 className="text-[14.5px] font-semibold tracking-[-0.01em]">{card.title}</h3>
               <p className="mt-1 flex-1 text-[12px] muted">{card.description}</p>
               <button type="button" className={`btn mt-4 w-full ${card.primary ? 'btn-primary' : ''}`} onClick={card.onClick}>
                 {card.action}
@@ -143,10 +143,10 @@ export default function Reports({ assets, dataset, settings, tickets, notify, na
         })}
       </div>
 
-      <SectionTitle>Summary preview</SectionTitle>
+      <SectionTitle>Summary Preview</SectionTitle>
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>
-          <CardHeader title="Financial summary" subtitle={`Currency: ${settings.currency}`} />
+          <CardHeader title="Financial Summary" subtitle="All amounts in Indian Rupees (₹)" />
           <div className="p-5 pt-3">
             {[
               ['Purchase value', financial.pricedCount ? money(financial.purchase) : 'No price data'],
@@ -165,7 +165,7 @@ export default function Reports({ assets, dataset, settings, tickets, notify, na
         </Card>
 
         <Card>
-          <CardHeader title="Inventory summary" subtitle="Counts by status and warranty" />
+          <CardHeader title="Inventory Summary" subtitle="Counts by status and warranty" />
           <div className="p-5 pt-3">
             {[['Total assets', assets.length], ...Object.entries(counts), ['Warranty active', warranty.active], ['Warranty expiring', warranty.expiring], ['Warranty expired', warranty.expired]].map(
               ([label, value]) => (
@@ -184,7 +184,7 @@ export default function Reports({ assets, dataset, settings, tickets, notify, na
         </Card>
 
         <Card>
-          <CardHeader title="Data source" subtitle="Provenance of every figure on the dashboard" />
+          <CardHeader title="Data Source" subtitle="Provenance of every figure on the dashboard" />
           <div className="p-5 pt-3 text-[12px]">
             {[
               ['File', dataset.fileName],
@@ -208,7 +208,7 @@ export default function Reports({ assets, dataset, settings, tickets, notify, na
         </Card>
       </div>
 
-      <SectionTitle>Mapped columns</SectionTitle>
+      <SectionTitle>Mapped Columns</SectionTitle>
       <Card className="p-5">
         <div className="flex flex-wrap gap-2">
           {mapped.map((field) => (

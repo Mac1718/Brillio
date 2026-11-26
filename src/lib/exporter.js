@@ -83,7 +83,7 @@ export function downloadSummaryReport({ dataset, assets, kpis, departmentRows, c
     { Metric: 'Warranty expiring soon', Value: warrantyRows.find((r) => r.name === 'Expiring soon')?.value ?? 0 },
     { Metric: 'Warranty expired', Value: warrantyRows.find((r) => r.name === 'Expired')?.value ?? 0 },
     { Metric: 'Depreciation rule', Value: `Straight line over ${settings.usefulLifeYears} years` },
-    { Metric: 'Currency', Value: settings.currency },
+    { Metric: 'Currency', Value: 'INR (₹)' },
   ]
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), 'Summary')
 

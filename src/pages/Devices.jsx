@@ -33,7 +33,7 @@ export default function Devices({ assets, dataset, settings, onSelect, notify })
   return (
     <div className="fade-in">
       <PageHeader
-        title="Desktop & laptop management"
+        title="Desktop & Laptop Management"
         description="Endpoint fleet composition, hardware generations and assignment coverage for desktops and laptops."
         actions={
           <button
@@ -74,7 +74,7 @@ export default function Devices({ assets, dataset, settings, onSelect, notify })
                 </span>
               ) : null}
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.08em] faint">{stat.label}</div>
+                <div className="text-[11.5px] font-medium uppercase tracking-[0.05em] faint">{stat.label}</div>
                 <div className="mono mt-0.5 text-[19px] font-semibold tracking-[-0.02em]">{stat.value}</div>
               </div>
             </div>
@@ -84,7 +84,7 @@ export default function Devices({ assets, dataset, settings, onSelect, notify })
 
       <SectionTitle>Endpoint analytics</SectionTitle>
       <div className="grid gap-4 lg:grid-cols-3">
-        <ChartFrame title="Endpoint mix" subtitle="Desktops vs laptops" height={252}>
+        <ChartFrame title="Endpoint Mix" subtitle="Desktops vs laptops" height={252}>
           {devices.length ? (
             <DonutChart
               data={[
@@ -100,18 +100,18 @@ export default function Devices({ assets, dataset, settings, onSelect, notify })
           )}
         </ChartFrame>
 
-        <ChartFrame title="Manufacturer mix" subtitle="Endpoint brands" height={252}>
+        <ChartFrame title="Manufacturer Mix" subtitle="Endpoint brands" height={252}>
           {brands.length ? <BarChartView data={brands} horizontal name="Devices" /> : <NoChartData message="No brand values found." fields="Brand column" />}
         </ChartFrame>
 
-        <ChartFrame title="Operating systems" subtitle="Endpoint OS distribution" height={252}>
+        <ChartFrame title="Operating Systems" subtitle="Endpoint OS distribution" height={252}>
           {os.length ? <DonutChart data={os.slice(0, 8)} currency={settings.currency} centerLabel="endpoints" /> : <NoChartData message="No OS values found." fields="Operating System column" />}
         </ChartFrame>
       </div>
 
       <SectionTitle>Endpoint configuration</SectionTitle>
       <Card className="overflow-hidden">
-        <CardHeader title="Manufacturer &amp; model summary" subtitle="Average configured RAM and storage per model" />
+        <CardHeader title="Manufacturer &amp; Model Summary" subtitle="Average configured RAM and storage per model" />
         <div className="table-wrap mt-3">
           <table className="data-table">
             <thead>
@@ -154,7 +154,7 @@ export default function Devices({ assets, dataset, settings, onSelect, notify })
           settings={settings}
           onSelect={onSelect}
           notify={notify}
-          title="Desktop & laptop inventory"
+          title="Desktop & Laptop Inventory"
           subtitle={`${devices.length} endpoints with full assignment and warranty detail`}
         />
       </div>

@@ -33,6 +33,5 @@ export const config = {
   uploadDir,
   maxUploadMb: Number(process.env.MAX_UPLOAD_MB || 25),
   publicDir: path.join(root, 'dist'),
-  bootstrapAdminEmail: (process.env.BOOTSTRAP_ADMIN_EMAIL || '').trim().toLowerCase(),
   logLevel: process.env.LOG_LEVEL || 'info',
 }

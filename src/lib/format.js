@@ -1,43 +1,51 @@
+/** Every monetary value in the application is Indian Rupees. */
+export const CURRENCY = 'INR'
+
 export const DEFAULT_SETTINGS = {
-  currency: 'USD',
+  currency: CURRENCY,
   usefulLifeYears: 4,
   warrantyAlertDays: 30,
   dateOrder: 'auto',
   pageSize: 10,
 }
 
-export const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'AED', 'AUD', 'CAD', 'SGD', 'JPY', 'SAR']
+// Indian digit grouping (lakhs and crores) with the ₹ symbol.
+const inrFormat = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: CURRENCY,
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+})
 
-const currencySymbols = {
-  USD: '$',
-  EUR: '€',
-  GBP: '£',
-  INR: '₹',
-  AED: 'AED ',
-  AUD: 'A$',
-  CAD: 'C$',
-  SGD: 'S$',
-  JPY: '¥',
-  SAR: 'SAR ',
+const inrDecimal = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 1 })
+
+// Lakh / crore abbreviations for tight spaces (chart axes and summary cards).
+// Intl's en-IN compact notation labels thousands with "T", which reads like
+// trillions, so the grouping is written out explicitly.
+function compactInr(value) {
+  const abs = Math.abs(value)
+  const sign = value < 0 ? '-' : ''
+  if (abs >= 1e7) return `${sign}₹${inrDecimal.format(abs / 1e7)}Cr`
+  if (abs >= 1e5) return `${sign}₹${inrDecimal.format(abs / 1e5)}L`
+  return inrFormat.format(value)
 }
 
-export function formatCurrency(value, currency = 'USD', compact = false) {
-  if (value == null || Number.isNaN(value)) return '—'
-  try {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency || 'USD',
-      maximumFractionDigits: compact ? 1 : 0,
-      notation: compact ? 'compact' : 'standard',
-    }).format(value)
-  } catch {
-    return `${currencySymbols[currency] || ''}${Math.round(value)}`
-  }
+/**
+ * Single currency formatter for the whole application.
+ *
+ * The second argument is kept so existing call sites that pass a currency keep
+ * working, but it is deliberately ignored: amounts are never converted and are
+ * always presented as INR. Numeric values themselves are never altered.
+ */
+export function formatCurrency(value, _currency, compact = false) {
+  const numeric = typeof value === 'string' ? Number(value) : value
+  if (numeric == null || Number.isNaN(numeric)) return '—'
+  return compact ? compactInr(numeric) : inrFormat.format(numeric)
 }
 
 export function formatNumber(value) {
   if (value == null || Number.isNaN(value)) return '—'
-  return new Intl.NumberFormat('en-US').format(value)
+  return new Intl.NumberFormat('en-IN').format(value)
 }
 
 export function formatDate(date) {

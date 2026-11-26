@@ -31,10 +31,10 @@ export function AuthProvider({ children }) {
     return data.user
   }, [])
 
-  const signup = useCallback(async ({ name, email, password }) => {
-    const data = await api.post('/auth/signup', { name, email, password })
+  const updateProfile = useCallback(async (changes) => {
+    const data = await api.patch('/auth/profile', changes)
     setUser(data.user)
-    return data
+    return data.user
   }, [])
 
   const logout = useCallback(async () => {
@@ -50,13 +50,13 @@ export function AuthProvider({ children }) {
       user,
       loading,
       login,
-      signup,
       logout,
+      updateProfile,
       role: user?.role || null,
       isAdmin: user?.role === 'admin',
       canWrite: user?.role === 'admin',
     }),
-    [user, loading, login, signup, logout],
+    [user, loading, login, logout, updateProfile],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

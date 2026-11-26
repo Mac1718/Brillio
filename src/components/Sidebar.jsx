@@ -7,11 +7,12 @@ import {
   LayoutDashboard,
   Laptop,
   LogOut,
+  Package,
   Settings,
   ShieldCheck,
   Table,
   UploadCloud,
-  Users,
+  UserPlus,
   Wallet,
   X,
 } from 'lucide-react'
@@ -42,8 +43,9 @@ const NAV_GROUPS = [
     label: 'Manage',
     items: [
       { id: 'vendors', label: 'Vendors', icon: Building2 },
+      { id: 'sam', label: 'SAM – Software Asset Management', icon: Package, long: true },
       { id: 'upload', label: 'Excel Upload', icon: UploadCloud, admin: true },
-      { id: 'users', label: 'User Management', icon: Users, admin: true },
+      { id: 'users', label: 'Create Users', icon: UserPlus, admin: true },
       { id: 'settings', label: 'Settings', icon: Settings },
     ],
   },
@@ -97,13 +99,14 @@ export default function Sidebar({
                       key={item.id}
                       type="button"
                       className={`nav-item ${isActive ? 'active' : ''}`}
+                      title={item.title || item.label}
                       onClick={() => {
                         onNavigate(item.id)
                         onClose()
                       }}
                     >
-                      <Icon size={16} strokeWidth={1.8} />
-                      <span className="flex-1 truncate">{item.label}</span>
+                      <Icon size={16} strokeWidth={1.8} className="flex-none" />
+                      <span className={`flex-1 ${item.long ? 'nav-item-long' : 'truncate'}`}>{item.label}</span>
                       {item.id === 'assessments' && recordCount ? <span className="nav-badge">{recordCount}</span> : null}
                       {item.id === 'inventory' && assetCount ? <span className="nav-badge">{assetCount}</span> : null}
                       {isActive ? <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#57d788' }} /> : null}

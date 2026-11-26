@@ -14,7 +14,7 @@ export default function Departments({ assets, dataset, settings, navigate }) {
   return (
     <div className="fade-in">
       <PageHeader
-        title="Department analytics"
+        title="Department Analytics"
         description="How hardware is distributed across the organisation, and what each department's estate is worth."
       />
 
@@ -39,7 +39,7 @@ export default function Departments({ assets, dataset, settings, navigate }) {
               { label: 'Total recorded spend', value: formatCurrency(totalCost, settings.currency) },
             ].map((stat) => (
               <div key={stat.label} className="card px-4 py-3">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.08em] faint">{stat.label}</div>
+                <div className="text-[11.5px] font-medium uppercase tracking-[0.05em] faint">{stat.label}</div>
                 <div className="mt-1 truncate text-[17px] font-semibold tracking-[-0.02em]" title={String(stat.value)}>
                   {stat.value}
                 </div>
@@ -48,12 +48,12 @@ export default function Departments({ assets, dataset, settings, navigate }) {
             ))}
           </div>
 
-          <SectionTitle>Distribution &amp; spend</SectionTitle>
+          <SectionTitle>Distribution &amp; Spend</SectionTitle>
           <div className="grid gap-4 lg:grid-cols-2">
-            <ChartFrame title="Assets by department" subtitle="Total assets held per department" height={300}>
+            <ChartFrame title="Assets by Department" subtitle="Total assets held per department" height={300}>
               {distribution.length ? <BarChartView data={distribution} horizontal name="Assets" /> : <NoChartData message="No department values found." />}
             </ChartFrame>
-            <ChartFrame title="Purchase value by department" subtitle="Recorded purchase price of each department's estate" height={300}>
+            <ChartFrame title="Purchase Value by Department" subtitle="Recorded purchase price of each department's estate" height={300}>
               {cost.length ? (
                 <BarChartView data={cost} horizontal name="Purchase value" asCurrency currency={settings.currency} />
               ) : (
@@ -62,8 +62,8 @@ export default function Departments({ assets, dataset, settings, navigate }) {
             </ChartFrame>
           </div>
 
-          <SectionTitle>Status mix per department</SectionTitle>
-          <ChartFrame title="Allocation and condition by department" subtitle="Stacked asset counts by lifecycle status" height={320}>
+          <SectionTitle>Status Mix per Department</SectionTitle>
+          <ChartFrame title="Allocation and Condition by Department" subtitle="Stacked asset counts by lifecycle status" height={320}>
             {summary.length ? (
               <StackedBarView
                 data={summary.slice(0, 12).map((row) => ({
@@ -86,9 +86,9 @@ export default function Departments({ assets, dataset, settings, navigate }) {
             )}
           </ChartFrame>
 
-          <SectionTitle>Department ledger</SectionTitle>
+          <SectionTitle>Department Ledger</SectionTitle>
           <Card className="overflow-hidden">
-            <CardHeader title="Department summary" subtitle="Asset counts, status split and financial position" />
+            <CardHeader title="Department Summary" subtitle="Asset counts, status split and financial position" />
             <div className="table-wrap mt-3" style={{ maxHeight: 480 }}>
               <table className="data-table">
                 <thead>

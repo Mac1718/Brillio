@@ -16,6 +16,8 @@ import assessmentRoutes from './routes/assessments.js'
 import vendorRoutes from './routes/vendors.js'
 import analyticsRoutes from './routes/analytics.js'
 import datasetRoutes from './routes/dataset.js'
+import softwareRoutes from './routes/software.js'
+import adminRoutes from './routes/admin.js'
 
 const app = express()
 
@@ -71,6 +73,8 @@ app.use('/api/assessments', assessmentRoutes)
 app.use('/api/vendors', vendorRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/dataset', datasetRoutes)
+app.use('/api/software', softwareRoutes)
+app.use('/api/admin', adminRoutes)
 
 app.use('/api', (req, res) => {
   res.status(404).json({ error: `No API route for ${req.method} ${req.originalUrl}` })
@@ -100,10 +104,17 @@ app.use((error, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong on the server' })
 })
 
+/**
+ * First-administrator provisioning. Credentials come only from the deployment
+ * environment (never source code), and this runs only while the users table is
+ * still empty. Every later account must be created by an admin.
+ */
 async function ensureBootstrapAdmin() {
   const email = (process.env.BOOTSTRAP_ADMIN_EMAIL || '').trim().toLowerCase()
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD || ''
   if (!email || !password) return
+  const count = await one('SELECT COUNT(*) AS total FROM users')
+  if (Number(count?.total || 0) > 0) return
   const existing = await one('SELECT id FROM users WHERE email = ?', [email])
   if (existing) return
   const now = new Date().toISOString()
@@ -112,7 +123,7 @@ async function ensureBootstrapAdmin() {
      VALUES (?, ?, ?, ?, 'admin', 1, ?, ?)`,
     [crypto.randomUUID(), process.env.BOOTSTRAP_ADMIN_NAME || 'Administrator', email, await hashPassword(password), now, now],
   )
-  console.log(`[brillo] created bootstrap administrator ${email}`)
+  console.log('[brillo] created the initial administrator from environment variables')
 }
 
 async function start() {

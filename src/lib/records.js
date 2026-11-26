@@ -1,5 +1,6 @@
 import { ASSET_FIELDS } from './fields.js'
 import { canonicalCategory, canonicalStatus, parseStorage } from './normalize.js'
+import { quarterForDate } from './quarters.js'
 
 /** ISO date (YYYY-MM-DD) -> local Date without timezone drift. */
 export function isoToDate(value) {
@@ -54,9 +55,11 @@ export function recordToAsset(record, index = 0) {
     maintenanceCost: null,
     repairStatus: '',
     notes: record.notes || '',
-    assessmentDate: isoToDate(record.assessmentDate),
-    assessmentYear: numeric(record.assessmentYear),
-    assessmentQuarter: record.assessmentQuarter || null,
+    // PO Date drives the reporting year and quarter everywhere it is shown.
+    assessmentYear: record.poDate ? numeric(String(record.poDate).slice(0, 4)) : numeric(record.assessmentYear),
+    assessmentQuarter: record.poDate ? quarterForDate(isoToDate(record.poDate)) : record.assessmentQuarter || null,
+    poDate: record.poDate || null,
+    poDateMissing: !record.poDate,
     assessmentStatus: record.assessmentStatus || null,
     vendorId: record.vendorId || null,
     vendorName: record.vendorName || '',
@@ -90,9 +93,26 @@ const RECORD_KEY = {
   processor: 'processor',
   os: 'os',
   supplier: 'vendorName',
-  assessmentDate: 'assessmentDate',
   assessmentStatus: 'assessmentStatus',
   notes: 'notes',
+  costType: 'costType',
+  projectId: 'projectId',
+  projectName: 'projectName',
+  memo: 'memo',
+  bau: 'bau',
+  remarks: 'remarks',
+  costQ1: 'costQ1',
+  costQ2: 'costQ2',
+  costQ3: 'costQ3',
+  costQ4: 'costQ4',
+  totalBudgetFy: 'totalBudgetFy',
+  spendFy: 'spendFy',
+  savings: 'savings',
+  excess: 'excess',
+  po: 'po',
+  poDate: 'poDate',
+  pr: 'pr',
+  prDate: 'prDate',
 }
 
 /**

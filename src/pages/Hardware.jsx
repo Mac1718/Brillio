@@ -52,7 +52,7 @@ export default function Hardware({ assets, dataset, settings }) {
   return (
     <div className="fade-in">
       <PageHeader
-        title="Hardware components"
+        title="Hardware Components"
         description="Physical inventory counts, storage and memory configuration, processors and model-level specifications."
       />
 
@@ -64,7 +64,7 @@ export default function Hardware({ assets, dataset, settings }) {
         </div>
       ) : null}
 
-      <SectionTitle hint="Derived from the category column">Component inventory</SectionTitle>
+      <SectionTitle hint="Derived from the category column">Component Inventory</SectionTitle>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         {Object.entries(inventory).map(([label, count]) => {
           const Icon = ICONS[label] || HardDrive
@@ -74,7 +74,7 @@ export default function Hardware({ assets, dataset, settings }) {
                 <Icon size={16} strokeWidth={1.8} />
               </span>
               <div className="min-w-0">
-                <div className="truncate text-[10px] font-semibold uppercase tracking-[0.06em] faint">{label}</div>
+                <div className="truncate text-[11.5px] font-medium uppercase tracking-[0.05em] faint">{label}</div>
                 <div className="mono text-[18px] font-semibold leading-tight">{count}</div>
               </div>
             </div>
@@ -82,9 +82,9 @@ export default function Hardware({ assets, dataset, settings }) {
         })}
       </div>
 
-      <SectionTitle>Storage &amp; memory</SectionTitle>
+      <SectionTitle>Storage &amp; Memory</SectionTitle>
       <div className="grid gap-4 lg:grid-cols-3">
-        <ChartFrame title="Storage capacity distribution" subtitle="Assets by drive size" height={264}>
+        <ChartFrame title="Storage Capacity Distribution" subtitle="Assets by drive size" height={264}>
           {hasStorage ? <BarChartView data={storage} name="Assets" /> : <NoChartData message="No storage values found." fields="Storage / Disk Size column" />}
         </ChartFrame>
 
@@ -97,10 +97,10 @@ export default function Hardware({ assets, dataset, settings }) {
         </ChartFrame>
       </div>
 
-      <SectionTitle>Configuration detail</SectionTitle>
+      <SectionTitle>Configuration Detail</SectionTitle>
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader title="Manufacturer &amp; model" subtitle="Units, configured memory, storage and leading processor" />
+          <CardHeader title="Manufacturer &amp; Model" subtitle="Units, configured memory, storage and leading processor" />
           <div className="table-wrap mt-3" style={{ maxHeight: 430 }}>
             <table className="data-table">
               <thead>

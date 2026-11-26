@@ -14,9 +14,10 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { CalendarRange, CheckCircle2, ClipboardList, Clock, MapPin, TrendingUp } from 'lucide-react'
-import { Card, CardHeader, EmptyState, KpiCard, PageHeader } from '../components/ui'
+import { AlertTriangle, CalendarRange, CheckCircle2, ClipboardList, Clock, MapPin, PiggyBank, Scale, TrendingUp, Wallet } from 'lucide-react'
+import { Card, CardHeader, EmptyState, KpiCard, PageHeader, SectionTitle } from '../components/ui'
 import { api, toQueryString } from '../lib/api'
+import { formatCurrency } from '../lib/format'
 import { QUARTERS, QUARTER_RANGES } from '../lib/quarters'
 
 const CHART_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', 'var(--chart-7)']
@@ -39,10 +40,10 @@ const chartTooltip = {
   labelStyle: { color: 'var(--text-2)', fontSize: 11 },
 }
 
-export default function Analytics({ refreshKey = 0 }) {
-  const [filters, setFilters] = useState({ year: '', quarter: '', status: '', vendorId: '', city: '' })
+export default function Analytics({ refreshKey = 0, settings }) {
+  const [filters, setFilters] = useState({ year: '', quarter: '', status: '', vendorId: '', city: '', department: '', projectId: '', category: '', costType: '' })
   const [data, setData] = useState(null)
-  const [meta, setMeta] = useState({ vendors: [], cities: [], years: [] })
+  const [meta, setMeta] = useState({ vendors: [], cities: [], years: [], departments: [], projects: [], categories: [], costTypes: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -50,7 +51,7 @@ export default function Analytics({ refreshKey = 0 }) {
     api
       .get('/assessments/filters')
       .then(setMeta)
-      .catch(() => setMeta({ vendors: [], cities: [], years: [] }))
+      .catch(() => setMeta({ vendors: [], cities: [], years: [], departments: [], projects: [], categories: [], costTypes: [] }))
   }, [refreshKey])
 
   const load = useCallback(async () => {
@@ -87,14 +88,26 @@ export default function Analytics({ refreshKey = 0 }) {
     [data],
   )
 
+  const financial = data?.financial
+  const currency = 'INR'
+  const spendShare = financial?.totals?.budget
+    ? Math.round((financial.totals.spend / financial.totals.budget) * 100)
+    : null
+  const financialGroups = [
+    { title: 'Department-wise Financials', rows: financial?.byDepartment || [] },
+    { title: 'Vendor-wise Financials', rows: financial?.byVendor || [] },
+    { title: 'Project-wise Financials', rows: financial?.byProject || [] },
+    { title: 'Category-wise Financials', rows: financial?.byCategory || [] },
+  ]
+
   const hasRecords = (data?.totalRecords || 0) > 0
   const hasFiltered = (totals?.total || 0) > 0
 
   return (
     <div className="fade-in">
       <PageHeader
-        title="Quarterly & yearly analytics"
-        description="Every figure is computed from the assessment date stored on each record. Quarter boundaries: Q1 Jan–Mar, Q2 Apr–Jun, Q3 Jul–Sep, Q4 Oct–Dec."
+        title="Quarterly & Yearly Analytics"
+        description="Every figure is computed from the PO Date stored on each record. Quarter boundaries: Q1 Jan–Mar, Q2 Apr–Jun, Q3 Jul–Sep, Q4 Oct–Dec."
         actions={
           <button type="button" className="btn" onClick={load} disabled={loading}>
             {loading ? 'Refreshing…' : 'Refresh'}
@@ -124,10 +137,26 @@ export default function Analytics({ refreshKey = 0 }) {
             <option value="">All cities</option>
             {meta.cities.map((city) => <option key={city} value={city}>{city}</option>)}
           </select>
+          <select className="input input-auto" value={filters.department} onChange={update('department')}>
+            <option value="">All departments</option>
+            {(meta.departments || []).map((department) => <option key={department} value={department}>{department}</option>)}
+          </select>
+          <select className="input input-auto" value={filters.projectId} onChange={update('projectId')}>
+            <option value="">All projects</option>
+            {(meta.projects || []).map((project) => <option key={project.id} value={project.id}>{project.name || project.id}</option>)}
+          </select>
+          <select className="input input-auto" value={filters.category} onChange={update('category')}>
+            <option value="">All categories</option>
+            {(meta.categories || []).map((category) => <option key={category} value={category}>{category}</option>)}
+          </select>
+          <select className="input input-auto" value={filters.costType} onChange={update('costType')}>
+            <option value="">All cost types</option>
+            {(meta.costTypes || []).map((costType) => <option key={costType} value={costType}>{costType}</option>)}
+          </select>
           <button
             type="button"
             className="btn btn-sm"
-            onClick={() => setFilters({ year: '', quarter: '', status: '', vendorId: '', city: '' })}
+            onClick={() => setFilters({ year: '', quarter: '', status: '', vendorId: '', city: '', department: '', projectId: '', category: '', costType: '' })}
           >
             Reset
           </button>
@@ -136,12 +165,26 @@ export default function Analytics({ refreshKey = 0 }) {
 
       {error ? <div className="card p-5 text-[12.5px]" style={{ color: 'var(--red)' }}>{error}</div> : null}
 
+      {!error && (data?.unclassifiedCount || 0) > 0 ? (
+        <div
+          className="mb-4 flex items-start gap-2 rounded-[10px] px-3 py-2.5 text-[12px]"
+          style={{ background: 'var(--amber-soft)', color: 'var(--amber)' }}
+        >
+          <AlertTriangle size={14} className="mt-0.5 flex-none" />
+          <div>
+            <span className="font-semibold">{data.unclassifiedCount} record{data.unclassifiedCount === 1 ? '' : 's'} without a valid PO Date</span>{' '}
+            are excluded from the quarterly and yearly figures because a period cannot be derived for them. Add or correct the PO Date in
+            Assessment Records to include them.
+          </div>
+        </div>
+      ) : null}
+
       {!error && !hasRecords && !loading ? (
         <Card>
           <EmptyState
             icon={CalendarRange}
             title="No assessments to analyse yet"
-            description="Import an Excel register that includes an Assessment Date column, or add records manually. Analytics appear as soon as records exist."
+            description="Import an Excel register that includes a PO Date column, or add records manually. Analytics appear as soon as records exist."
           />
         </Card>
       ) : null}
@@ -151,7 +194,11 @@ export default function Analytics({ refreshKey = 0 }) {
           <EmptyState
             icon={ClipboardList}
             title="No records match these filters"
-            description="Widen the year, quarter, vendor, city or status filters to see assessments."
+            description={
+              (data?.unclassifiedCount || 0) > 0
+                ? 'Records without a readable PO Date cannot be placed in a quarter. Correct their PO Date in Assessment Records, or widen the filters.'
+                : 'Widen the year, quarter, vendor, city or status filters to see assessments.'
+            }
           />
         </Card>
       ) : null}
@@ -159,10 +206,10 @@ export default function Analytics({ refreshKey = 0 }) {
       {hasFiltered ? (
         <>
           <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <KpiCard label="Total assessments" value={totals.total} tone="brand" icon={ClipboardList} foot={`${data.activeYear || 'All years'}${filters.quarter ? ` · ${filters.quarter}` : ''}`} />
+            <KpiCard label="Total Assessments" value={totals.total} tone="brand" icon={ClipboardList} foot={`${data.activeYear || 'All years'}${filters.quarter ? ` · ${filters.quarter}` : ''}`} />
             <KpiCard label="Completed" value={totals.completed} tone="green" icon={CheckCircle2} foot={totals.completionRate != null ? `${totals.completionRate}% completion` : '—'} />
             <KpiCard label="Pending" value={totals.pending} tone="amber" icon={Clock} foot={`${totals.inProgress} in progress`} />
-            <KpiCard label="Vendors / cities" value={`${totals.vendors} / ${totals.cities}`} tone="neutral" icon={MapPin} foot={totals.span ? `${totals.span.from}–${totals.span.to}` : '—'} />
+            <KpiCard label="Vendors / Cities" value={`${totals.vendors} / ${totals.cities}`} tone="neutral" icon={MapPin} foot={totals.span ? `${totals.span.from}–${totals.span.to}` : '—'} />
           </div>
 
           <div className="grid gap-4 xl:grid-cols-4">
@@ -197,7 +244,7 @@ export default function Analytics({ refreshKey = 0 }) {
 
           <div className="mt-4 grid gap-4 xl:grid-cols-2">
             <Card>
-              <CardHeader title="Quarter comparison" subtitle="Assessments per quarter for the selected filters" />
+              <CardHeader title="Quarter Comparison" subtitle="Assessments per quarter for the selected filters" />
               <div className="h-[260px] p-3">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={quarterChart} barGap={4}>
@@ -215,7 +262,7 @@ export default function Analytics({ refreshKey = 0 }) {
             </Card>
 
             <Card>
-              <CardHeader title="Year-over-year" subtitle="Totals per assessment year (year filter ignored here)" />
+              <CardHeader title="Year-over-Year" subtitle="Totals per PO Date financial year (year filter ignored here)" />
               <div className="h-[260px] p-3">
                 {yearChart.length ? (
                   <ResponsiveContainer width="100%" height="100%">
@@ -234,7 +281,7 @@ export default function Analytics({ refreshKey = 0 }) {
             </Card>
 
             <Card>
-              <CardHeader title="Completion trend" subtitle={`Monthly assessments in ${data.activeYear ?? 'the selected year'}`} />
+              <CardHeader title="Completion Trend" subtitle={`Assessments by PO Date month in ${data.activeYear ?? 'the selected year'}`} />
               <div className="h-[250px] p-3">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={data.monthly}>
@@ -251,7 +298,7 @@ export default function Analytics({ refreshKey = 0 }) {
             </Card>
 
             <Card>
-              <CardHeader title="Status distribution" subtitle="Across the current filters" />
+              <CardHeader title="Status Distribution" subtitle="Across the current filters" />
               <div className="h-[250px] p-3">
                 {statusChart.length ? (
                   <ResponsiveContainer width="100%" height="100%">
@@ -272,8 +319,8 @@ export default function Analytics({ refreshKey = 0 }) {
 
           <div className="mt-4 grid gap-4 xl:grid-cols-3">
             {[
-              { title: 'Vendor-wise assessments', subtitle: 'By vendor on each record', rows: data.byVendor, icon: TrendingUp },
-              { title: 'City-wise assessments', subtitle: 'Vendor city on each record', rows: data.byCity, icon: MapPin },
+              { title: 'Vendor-wise Assessments', subtitle: 'By vendor on each record', rows: data.byVendor, icon: TrendingUp },
+              { title: 'City-wise Assessments', subtitle: 'Vendor city on each record', rows: data.byCity, icon: MapPin },
               { title: 'Department-wise', subtitle: 'Department on each record', rows: data.byDepartment, icon: ClipboardList },
             ].map((panel) => (
               <Card key={panel.title}>
@@ -303,8 +350,127 @@ export default function Analytics({ refreshKey = 0 }) {
             ))}
           </div>
 
+          {financial?.hasFinancialData ? (
+            <>
+              <SectionTitle hint="Read from the recorded fields — budget, spend, savings and excess are never recalculated">
+                Financials · {filters.year || 'all years'}
+              </SectionTitle>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <KpiCard
+                  label="Total Budget FY"
+                  value={formatCurrency(financial.totals.budget, currency, true)}
+                  tone="brand"
+                  icon={Wallet}
+                  foot={`Q1–Q4 costs ${formatCurrency(financial.totals.costTotal, currency, true)}`}
+                />
+                <KpiCard
+                  label="Spend FY"
+                  value={formatCurrency(financial.totals.spend, currency, true)}
+                  tone="green"
+                  icon={TrendingUp}
+                  foot={spendShare != null ? `${spendShare}% of budget` : 'No budget recorded'}
+                />
+                <KpiCard
+                  label="Savings"
+                  value={formatCurrency(financial.totals.savings, currency, true)}
+                  tone="green"
+                  icon={PiggyBank}
+                  foot="As recorded in the register"
+                />
+                <KpiCard
+                  label="Excess"
+                  value={formatCurrency(financial.totals.excess, currency, true)}
+                  tone="amber"
+                  icon={Scale}
+                  foot="As recorded in the register"
+                />
+              </div>
+
+              <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                <Card>
+                  <CardHeader title="Quarterly Cost Comparison" subtitle="Cost Q1–Q4 for the selected filters" />
+                  <div className="h-[250px] p-3">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={financial.quarters}>
+                        <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
+                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-3)' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: 'var(--text-3)' }} axisLine={false} tickLine={false} tickFormatter={(value) => formatCurrency(value, currency, true)} />
+                        <Tooltip {...chartTooltip} formatter={(value) => formatCurrency(value, currency)} />
+                        <Bar dataKey="cost" name="Cost" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+
+                <Card>
+                  <CardHeader title="Budget vs Actual Spend" subtitle="Top departments by recorded budget" />
+                  <div className="h-[250px] p-3">
+                    {financial.byDepartment.length ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={financial.byDepartment.slice(0, 6)} barGap={3}>
+                          <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
+                          <XAxis dataKey="name" tick={{ fontSize: 10.5, fill: 'var(--text-3)' }} axisLine={false} tickLine={false} interval={0} />
+                          <YAxis tick={{ fontSize: 11, fill: 'var(--text-3)' }} axisLine={false} tickLine={false} tickFormatter={(value) => formatCurrency(value, currency, true)} />
+                          <Tooltip {...chartTooltip} formatter={(value) => formatCurrency(value, currency)} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                          <Bar dataKey="budget" name="Budget" fill="var(--chart-2)" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="spend" name="Spend" fill="var(--chart-4)" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : <div className="grid h-full place-items-center text-[12px] faint">No department values</div>}
+                  </div>
+                </Card>
+              </div>
+
+              <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                {financialGroups.map((panel) => (
+                  <Card key={panel.title}>
+                    <CardHeader title={panel.title} />
+                    <div className="table-scroll">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th className="text-right">Budget</th>
+                            <th className="text-right">Spend</th>
+                            <th className="text-right">Cost Q1–Q4</th>
+                            <th className="text-right">Savings</th>
+                            <th className="text-right">Excess</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {panel.rows.length ? panel.rows.map((row) => (
+                            <tr key={row.name}>
+                              <td className="max-w-[200px] truncate">{row.name}</td>
+                              <td className="mono text-right">{formatCurrency(row.budget, currency)}</td>
+                              <td className="mono text-right">{formatCurrency(row.spend, currency)}</td>
+                              <td className="mono text-right">{formatCurrency(row.cost, currency)}</td>
+                              <td className="mono text-right">{formatCurrency(row.savings, currency)}</td>
+                              <td className="mono text-right">{formatCurrency(row.excess, currency)}</td>
+                            </tr>
+                          )) : (
+                            <tr><td colSpan={6} className="py-5 text-center text-[12px] faint">No values</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </>
+          ) : (
+            <Card className="mt-4">
+              <CardHeader title="Financial Analytics" subtitle="Cost Q1–Q4, budget and spend by department, vendor, project and category" />
+              <div className="p-4 text-[12px] muted">
+                No financial values are recorded for the selected filters yet. Add Cost Q1–Q4, Total Budget FY, Spend FY, Savings or Excess
+                through manual entry or an Excel import and the quarterly comparisons appear here.
+              </div>
+            </Card>
+          )}
+
           <Card className="mt-4">
-            <CardHeader title="Quarterly summary table" subtitle="Assessments, completion and value by quarter" />
+            <CardHeader title="Quarterly Summary Table" subtitle="Assessments, completion and value by PO Date quarter" />
             <div className="table-scroll">
               <table className="data-table">
                 <thead>

@@ -42,7 +42,7 @@ export default function Costs({ assets, dataset, settings, tickets, notify, onSe
   return (
     <div className="fade-in">
       <PageHeader
-        title="Cost & purchase analytics"
+        title="Cost & Purchase Analytics"
         description="Procurement history, category and department spending, and the depreciated value of the estate."
         actions={
           <button
@@ -79,7 +79,7 @@ export default function Costs({ assets, dataset, settings, tickets, notify, onSe
         {cards.map((card) => (
           <div key={card.label} className="card px-4 py-3.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.07em] faint">{card.label}</span>
+              <span className="text-[11.5px] font-medium uppercase tracking-[0.05em] faint">{card.label}</span>
               <Wallet size={13} style={{ color: 'var(--text-3)' }} />
             </div>
             <div className="mono mt-1.5 text-[20px] font-semibold tracking-[-0.02em]">{card.value}</div>
@@ -90,7 +90,7 @@ export default function Costs({ assets, dataset, settings, tickets, notify, onSe
 
       <SectionTitle>Spending over time</SectionTitle>
       <ChartFrame
-        title="Purchase value by period"
+        title="Purchase Value by Period"
         subtitle={trend.dated ? `${trend.dated} assets with a purchase date` : 'No dated purchases'}
         action={
           <Segmented
@@ -113,17 +113,17 @@ export default function Costs({ assets, dataset, settings, tickets, notify, onSe
 
       <SectionTitle>Where the money went</SectionTitle>
       <div className="grid gap-4 lg:grid-cols-2">
-        <ChartFrame title="Cost by asset category" subtitle="Total purchase value per category" height={320}>
+        <ChartFrame title="Cost by Asset Category" subtitle="Total purchase value per category" height={320}>
           {byCategory.length ? <BarChartView data={byCategory} horizontal name="Purchase value" asCurrency currency={settings.currency} /> : <NoChartData message="No priced categories available." fields="Purchase Price + Category" />}
         </ChartFrame>
-        <ChartFrame title="Department-wise asset cost" subtitle="IT spending compared across departments" height={320}>
+        <ChartFrame title="Department-wise Asset Cost" subtitle="IT spending compared across departments" height={320}>
           {byDepartment.length ? <BarChartView data={byDepartment} horizontal name="Purchase value" asCurrency currency={settings.currency} color="var(--chart-3)" /> : <NoChartData message="No department spending available." fields="Department + Purchase Price" />}
         </ChartFrame>
       </div>
 
       <SectionTitle>Most expensive assets</SectionTitle>
       <Card className="overflow-hidden">
-        <CardHeader title="Top purchases" subtitle="Highest recorded purchase prices in this dataset" />
+        <CardHeader title="Top Purchases" subtitle="Highest recorded purchase prices in this dataset" />
         <div className="table-wrap mt-3">
           <table className="data-table">
             <thead>

@@ -27,7 +27,7 @@ export default function UploadPage({ onImported, notify }) {
   return (
     <div className="fade-in">
       <PageHeader
-        title="Excel upload"
+        title="Excel Upload"
         description="Import an assessment register, check every row against the validation rules, then save it to the database. Dashboards and analytics update from the stored records."
       />
 
@@ -44,29 +44,29 @@ export default function UploadPage({ onImported, notify }) {
 
         <div className="space-y-4">
           <Card>
-            <CardHeader title="What gets detected" subtitle="Headings matched to validated fields" />
+            <CardHeader title="What Gets Detected" subtitle="Headings matched to validated fields" />
             <div className="p-5">
               <div className="flex flex-wrap gap-1.5">
                 {ASSET_FIELDS.map((field) => (
                   <span key={field.key} className="badge">
                     {field.label}
-                    {field.key === 'assessmentDate' ? ' *' : ''}
+                    {field.key === 'poDate' ? ' *' : ''}
                   </span>
                 ))}
               </div>
               <p className="mt-3 text-[11.5px] leading-relaxed faint">
-                Assessment Date and Asset ID (or Serial Number) are mandatory. Rows missing either are listed as invalid and are never written to the database.
+                PO Date and Asset ID (or Serial Number) are mandatory. Rows missing either are listed as invalid and are never written to the database.
               </p>
             </div>
           </Card>
 
           <Card>
-            <CardHeader title="Import rules" subtitle="Applied on the server for uploads and manual entry" />
+            <CardHeader title="Import Rules" subtitle="Applied on the server for uploads and manual entry" />
             <div className="space-y-3 p-5">
               {[
-                { icon: Sparkles, title: 'Assessment date is the source of truth', text: 'Year and quarter come from the record date, never from the upload or creation date.' },
+                { icon: Sparkles, title: 'PO Date is the source of truth', text: 'The financial year and quarter come from the PO Date, never from the upload date, the creation date, the PR Date or today’s date.' },
                 { icon: ShieldCheck, title: 'No silent corrections', text: 'Missing or unreadable dates are flagged for correction instead of being given an invented quarter.' },
-                { icon: FileSpreadsheet, title: 'Duplicates are blocked', text: 'The same asset assessed on the same date is rejected on import and on manual entry.' },
+                { icon: FileSpreadsheet, title: 'Duplicates are blocked', text: 'The same asset or project with the same PO Date is rejected on import and on manual entry.' },
               ].map((item) => {
                 const Icon = item.icon
                 return (
@@ -86,7 +86,7 @@ export default function UploadPage({ onImported, notify }) {
 
           {isAdmin && imports.length ? (
             <Card>
-              <CardHeader title="Import history" subtitle="Most recent first" action={<History size={14} className="faint" />} />
+              <CardHeader title="Import History" subtitle="Most recent first" action={<History size={14} className="faint" />} />
               <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
                 {imports.slice(0, 8).map((item) => (
                   <div key={item.id} className="px-4 py-2.5">

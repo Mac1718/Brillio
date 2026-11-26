@@ -52,9 +52,9 @@ export default function ImportPanel({ onImported, notify }) {
     accept(event.dataTransfer.files?.[0])
   }
 
-  const chooseDateColumn = (event) => {
+  const chooseColumn = (key) => (event) => {
     const value = event.target.value
-    const next = { ...overrides, assessmentDate: value === '' ? -1 : Number(value) }
+    const next = { ...overrides, [key]: value === '' ? -1 : Number(value) }
     setOverrides(next)
     if (file) runPreview(file, next)
   }
@@ -91,12 +91,14 @@ export default function ImportPanel({ onImported, notify }) {
 
   const summary = preview?.summary
   const missing = preview?.missingMandatory || []
-  const canImport = Boolean(preview && summary?.valid > 0 && !missing.length)
+  const exactDuplicates = preview?.duplicates?.exact || []
+  const fieldDuplicates = preview?.duplicates?.fields || []
+  const canImport = Boolean(preview && summary?.valid > 0 && !missing.length && !exactDuplicates.length)
 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader title="Upload a register" subtitle="Columns are detected automatically; every row is validated before anything is saved." />
+        <CardHeader title="Upload a Register" subtitle="Columns are detected automatically; every row is validated before anything is saved." />
 
         <div className="p-4 sm:p-5">
           <div
@@ -144,8 +146,15 @@ export default function ImportPanel({ onImported, notify }) {
               <div className="flex items-center gap-2 font-semibold"><CheckCircle2 size={14} /> Import complete</div>
               <div className="mt-1">
                 {result.summary.imported} imported · {result.summary.duplicates} duplicate{result.summary.duplicates === 1 ? '' : 's'} skipped · {result.summary.invalid} invalid.
-                {result.unmatchedVendors?.length ? ` ${result.unmatchedVendors.length} vendor name(s) are not in the vendor master.` : ''}
+                {result.vendorSummary
+                  ? ` ${result.vendorSummary.matchedCount} vendor${result.vendorSummary.matchedCount === 1 ? '' : 's'} matched · ${result.vendorSummary.createCount} new vendor${result.vendorSummary.createCount === 1 ? '' : 's'} created.`
+                  : ''}
               </div>
+              {result.vendorSummary?.ambiguous?.length ? (
+                <div className="mt-1">
+                  Flagged for review: {result.vendorSummary.ambiguous.map((entry) => `${entry.name} (similar to ${entry.similarTo})`).join(', ')}.
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -175,7 +184,7 @@ export default function ImportPanel({ onImported, notify }) {
                 { label: 'Invalid', value: summary.invalid, tone: 'red' },
               ].map((stat) => (
                 <div key={stat.label} className="rounded-[9px] px-3 py-2" style={{ background: 'var(--panel-2)' }}>
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.07em] faint">{stat.label}</div>
+                  <div className="text-[11.5px] font-medium uppercase tracking-[0.05em] faint">{stat.label}</div>
                   <div className="mono mt-0.5 text-[16px] font-semibold">{stat.value}</div>
                 </div>
               ))}
@@ -187,17 +196,59 @@ export default function ImportPanel({ onImported, notify }) {
                 <div>
                   <div className="font-semibold">Cannot import until this is resolved</div>
                   <div className="mt-0.5">
-                    Missing: {missing.join(', ')}. The sheet has no assessment date column, so no year or quarter can be derived.
-                    {preview.headers?.length ? ' Choose the column that holds the assessment date below.' : null}
+                    Missing: {missing.join(', ')}. The financial year and quarter come from the PO Date, so the sheet needs
+                    a readable PO Date column.
+                    {preview.headers?.length ? ' Map the columns below and re-check.' : null}
                   </div>
                 </div>
               </div>
             ) : null}
 
+            {exactDuplicates.length ? (
+              <div className="mb-3 flex items-start gap-2 rounded-[10px] px-3 py-2.5 text-[12px]" style={{ background: 'var(--red-soft)', color: 'var(--red)' }}>
+                <AlertTriangle size={14} className="mt-0.5 flex-none" />
+                <div>
+                  <div className="font-semibold">Duplicate columns after normalisation</div>
+                  <div className="mt-0.5">
+                    {exactDuplicates.map((entry) => `“${entry.columns.join('” / “')}”`).join('; ')}. Header matching ignores case and spacing, so these
+                    columns resolve to the same field. Keep one and re-upload before importing.
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mb-3 rounded-[10px] px-3 py-2.5 text-[11.5px]" style={{ background: 'var(--panel-2)', color: 'var(--text-2)' }}>
+              <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                <span className="font-semibold">Standard assessment columns</span>
+                <span className="mono faint">
+                  {preview.standard?.matchedCount ?? 0} of {preview.standard?.total ?? 21} matched
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {(preview.standard?.matched || []).map((field) => (
+                  <Badge key={field.key} tone="green">{field.label}</Badge>
+                ))}
+                {(preview.standard?.missing || []).map((field) => (
+                  <Badge key={field.key} tone="neutral">{field.label}</Badge>
+                ))}
+              </div>
+              {fieldDuplicates.length ? (
+                <p className="mt-2" style={{ color: 'var(--amber)' }}>
+                  More than one column maps to:{' '}
+                  {fieldDuplicates.map((entry) => `${entry.label} (${entry.columns.join(', ')})`).join('; ')}. The first match is used.
+                </p>
+              ) : null}
+              {preview.unrecognised?.length ? (
+                <p className="mt-2">
+                  Not part of the standard structure and ignored: {preview.unrecognised.join(', ')}.
+                </p>
+              ) : null}
+            </div>
+
             <div className="mb-3 flex flex-wrap items-end gap-3">
               <label className="field" style={{ minWidth: 260 }}>
-                <span className="field-label">Assessment date column</span>
-                <select className="input" value={overrides.assessmentDate ?? preview.assessmentDateColumn ?? ''} onChange={chooseDateColumn}>
+                <span className="field-label">PO date column — sets year &amp; quarter</span>
+                <select className="input" value={overrides.poDate ?? preview.poDateColumn ?? ''} onChange={chooseColumn('poDate')}>
                   <option value="">Not mapped</option>
                   {preview.headers.map((header, index) => (
                     <option key={`${header}-${index}`} value={index}>{header}</option>
@@ -217,10 +268,10 @@ export default function ImportPanel({ onImported, notify }) {
                 <thead>
                   <tr>
                     <th>Row</th>
-                    <th>Asset</th>
-                    <th>Assessment date</th>
-                    <th>Year</th>
-                    <th>Quarter</th>
+                    <th>Asset / project</th>
+                    <th>PO date</th>
+                    <th>Year (PO)</th>
+                    <th>Quarter (PO)</th>
                     <th>Status</th>
                     <th>Result</th>
                   </tr>
@@ -230,10 +281,12 @@ export default function ImportPanel({ onImported, notify }) {
                     <tr key={row.rowNumber}>
                       <td className="mono faint">{row.rowNumber}</td>
                       <td>
-                        <div className="font-medium">{row.record.assetId || row.record.serial || '—'}</div>
-                        <div className="text-[11px] faint">{[row.record.category, row.record.department].filter(Boolean).join(' · ') || '—'}</div>
+                        <div className="font-medium">{row.record.assetId || row.record.serial || row.record.projectId || '—'}</div>
+                        <div className="max-w-[220px] truncate text-[11px] faint">
+                          {[row.record.projectId, row.record.department, row.record.category].filter(Boolean).join(' · ') || '—'}
+                        </div>
                       </td>
-                      <td className="mono">{row.record.assessmentDate || '—'}</td>
+                      <td className="mono">{row.record.poDate || '—'}</td>
                       <td className="mono">{row.record.assessmentYear ?? '—'}</td>
                       <td>{row.record.assessmentQuarter || '—'}</td>
                       <td>{row.record.assessmentStatus || '—'}</td>
@@ -257,7 +310,66 @@ export default function ImportPanel({ onImported, notify }) {
 
             {preview.truncated ? <p className="mt-2 text-[11px] faint">Showing the first {preview.rows.length} rows. All {summary.total} rows are validated and imported when you continue.</p> : null}
 
-            {preview.unmatchedVendors?.length ? (
+            {preview.vendorSummary ? (
+              <div className="mt-3 rounded-[10px] px-3 py-2.5 text-[11.5px]" style={{ background: 'var(--panel-2)', color: 'var(--text-2)' }}>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold">Vendor mapping</span>
+                  <span className="mono faint">
+                    {preview.vendorSummary.matchedCount} matched · {preview.vendorSummary.createCount} new
+                  </span>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div>
+                    <div className="text-[10.5px] font-semibold uppercase tracking-[0.05em] faint">Matched to existing vendors</div>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {preview.vendorSummary.existing.length ? (
+                        preview.vendorSummary.existing.map((entry) => (
+                          <Badge key={entry.vendorId} tone="green">
+                            {entry.vendorName}{entry.count > 1 ? ` · ${entry.count} rows` : ''}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="faint">None</span>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10.5px] font-semibold uppercase tracking-[0.05em] faint">New vendors to create</div>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {preview.vendorSummary.create.length ? (
+                        preview.vendorSummary.create.map((entry) => (
+                          <Badge key={entry.name} tone="blue">
+                            {entry.name}{entry.count > 1 ? ` · ${entry.count} rows` : ''}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="faint">None</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {preview.vendorSummary.duplicates.length ? (
+                  <p className="mt-2">
+                    Repeated vendor names in this file (mapped once):{' '}
+                    {preview.vendorSummary.duplicates.map((entry) => `${entry.name} ×${entry.count}`).join(', ')}.
+                  </p>
+                ) : null}
+                {preview.vendorSummary.ambiguous.length ? (
+                  <p className="mt-2" style={{ color: 'var(--amber)' }}>
+                    Possible spelling variations flagged for Admin review:{' '}
+                    {preview.vendorSummary.ambiguous
+                      .map((entry) => `${entry.name} is ${entry.similarity}% similar to ${entry.similarTo}`)
+                      .join('; ')}
+                    . A separate vendor will be created rather than silently merging them.
+                  </p>
+                ) : null}
+                {preview.vendorSummary.missingVendorNames ? (
+                  <p className="mt-2">
+                    {preview.vendorSummary.missingVendorNames} row{preview.vendorSummary.missingVendorNames === 1 ? '' : 's'} have no Vendor Name; those assessments stay unlinked.
+                  </p>
+                ) : null}
+              </div>
+            ) : preview.unmatchedVendors?.length ? (
               <div className="mt-3 rounded-[10px] px-3 py-2.5 text-[11.5px]" style={{ background: 'var(--panel-2)', color: 'var(--text-2)' }}>
                 Vendor names not found in the vendor master: {preview.unmatchedVendors.join(', ')}. These records keep the name but are not linked to a vendor city until the vendor is added.
               </div>

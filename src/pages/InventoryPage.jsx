@@ -9,7 +9,7 @@ export default function InventoryPage({ assets, dataset, settings, onSelect, not
   return (
     <div className="fade-in">
       <PageHeader
-        title="Asset inventory"
+        title="Asset Inventory"
         description={`Every row from “${dataset.fileName}” · ${dataset.sheetName}. Search, filter, sort and open any asset for its full record.`}
         actions={
           <button
@@ -33,13 +33,13 @@ export default function InventoryPage({ assets, dataset, settings, onSelect, not
           { label: 'Recorded purchase value', value: formatCurrency(totalValue, settings.currency) },
         ].map((item) => (
           <div key={item.label} className="card px-4 py-3">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] faint">{item.label}</div>
+            <div className="text-[11.5px] font-medium uppercase tracking-[0.05em] faint">{item.label}</div>
             <div className="mono mt-1 text-[19px] font-semibold tracking-[-0.02em]">{item.value}</div>
           </div>
         ))}
       </div>
 
-      <InventoryTable assets={assets} dataset={dataset} settings={settings} onSelect={onSelect} notify={notify} title="All assets" />
+      <InventoryTable assets={assets} dataset={dataset} settings={settings} onSelect={onSelect} notify={notify} title="All Assets" />
 
       <p className="mt-3 flex items-center gap-1.5 text-[11px] faint">
         <UploadCloud size={12} /> Source imported {formatDate(dataset.importedAt)} · {dataset.headers.length} columns mapped to {Object.keys(dataset.mapping).length} fields.

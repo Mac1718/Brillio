@@ -34,7 +34,15 @@ export function parseAssessmentDate(value) {
 
   if (value instanceof Date) {
     if (Number.isNaN(value.getTime())) return null
-    return validParts(value.getFullYear(), value.getMonth() + 1, value.getDate())
+    // SheetJS turns a date-formatted cell into a Date a few seconds before
+    // local midnight of the previous day. That is still the intended calendar
+    // day, so snap values in the last minute of a day forward.
+    let day = value
+    const midnight = new Date(value.getFullYear(), value.getMonth(), value.getDate())
+    if (value.getTime() - midnight.getTime() >= 86340000) {
+      day = new Date(value.getFullYear(), value.getMonth(), value.getDate() + 1)
+    }
+    return validParts(day.getFullYear(), day.getMonth() + 1, day.getDate())
   }
 
   if (typeof value === 'number') {
@@ -68,7 +76,7 @@ export function parseAssessmentDate(value) {
   return validParts(fallback.getFullYear(), fallback.getMonth() + 1, fallback.getDate())
 }
 
-/** Month 1-12 -> quarter label. This is the single source of truth for classification. */
+/** Month 1-12 -> quarter label. Single source of truth for classification. */
 export const quarterForMonth = (month) => QUARTERS[Math.floor((month - 1) / 3)]
 
 export function quarterBounds(year, quarter) {
@@ -80,12 +88,23 @@ export function quarterBounds(year, quarter) {
   return { start: isoDate(year, startMonth, 1), end: isoDate(year, endMonth, lastDay) }
 }
 
-export function classifyAssessmentDate(value) {
+/**
+ * PO Date is the single source of truth for the reporting financial year and
+ * quarter. It is mandatory: a missing or unreadable PO Date is a validation
+ * error, so a record is never given a guessed quarter.
+ */
+export function classifyPoDate(value) {
+  const text = value == null ? '' : String(value).trim()
+  if (!text) {
+    return { error: 'PO Date is required: it determines the financial year and quarter' }
+  }
+  // A bare year would silently become January, i.e. Q1. Require a full date.
+  if (/^\d{4}$/.test(text) || (typeof value === 'number' && value >= 1900 && value <= 2999)) {
+    return { error: `PO Date “${text.slice(0, 40)}” needs a month and day, not just a year` }
+  }
   const parts = parseAssessmentDate(value)
   if (!parts) {
-    return {
-      error: value == null || value === '' ? 'Assessment date is required' : `“${String(value).slice(0, 40)}” is not a valid date`,
-    }
+    return { error: `PO Date “${text.slice(0, 40)}” is not a valid date, so its financial year and quarter cannot be determined` }
   }
   return {
     iso: isoDate(parts.year, parts.month, parts.day),
@@ -93,6 +112,13 @@ export function classifyAssessmentDate(value) {
     quarter: quarterForMonth(parts.month),
     month: parts.month,
   }
+}
+
+/** Reporting year/quarter from a stored ISO PO date; null when absent/invalid. */
+export function classificationFromPoDate(value) {
+  const parts = parseAssessmentDate(value)
+  if (!parts) return null
+  return { year: parts.year, quarter: quarterForMonth(parts.month), month: parts.month }
 }
 
 export function canonicalAssessmentStatus(raw) {
@@ -118,7 +144,7 @@ export function canonicalAssetStatus(raw, employee) {
   return String(employee ?? '').trim() ? 'Assigned' : 'Available'
 }
 
-const cleanText = (value, max = 500) => {
+export const cleanText = (value, max = 500) => {
   if (value == null) return null
   const text = String(value).replace(/\s+/g, ' ').trim()
   if (!text) return null
@@ -151,11 +177,43 @@ const optionalIso = (value) => {
   return parts ? isoDate(parts.year, parts.month, parts.day) : null
 }
 
-export const dedupeKeyFor = ({ assetId, serial, assessmentDate }) =>
-  crypto
-    .createHash('sha256')
-    .update([assetId || '', serial || '', assessmentDate || ''].join('|').toLowerCase())
-    .digest('hex')
+/**
+ * Stable duplicate key.
+ *
+ * The register has no assessment date column, so an asset or project is
+ * identified together with its PO Date, which is the reporting period.
+ * Project-based rows get their own namespace so a project ID can never
+ * collide with an asset ID.
+ */
+export const dedupeKeyFor = ({ assetId, serial, projectId, memo, poDate }) => {
+  const hasAssetIdentity = Boolean(cleanText(assetId) || cleanText(serial))
+  const identity = hasAssetIdentity
+    ? `${assetId || ''}|${serial || ''}`
+    : `${projectId || memo || ''}|~standard`
+  return crypto.createHash('sha256').update(`${identity}|${poDate || ''}`.toLowerCase()).digest('hex')
+}
+
+/** Numeric standard field with a field-specific error message. */
+function numberField(value, label, errors) {
+  if (value == null || String(value).trim() === '') return null
+  const parsed = parseNumber(value)
+  if (parsed == null) {
+    errors.push(`${label} must be a number (received “${String(value).trim().slice(0, 30)}”)`)
+    return null
+  }
+  return parsed
+}
+
+/** Optional date field belonging to the standard template (PO / PR dates). */
+function dateField(value, label, errors) {
+  if (value == null || String(value).trim() === '') return null
+  const parts = parseAssessmentDate(value)
+  if (!parts) {
+    errors.push(`${label} is not a valid date (received “${String(value).trim().slice(0, 30)}”)`)
+    return null
+  }
+  return isoDate(parts.year, parts.month, parts.day)
+}
 
 /**
  * Normalises one assessment from either Excel or manual entry. Both paths call
@@ -167,10 +225,16 @@ export function normalizeAssessment(input, { source = 'manual' } = {}) {
 
   const assetId = cleanText(input.assetId, 120)
   const serial = cleanText(input.serial, 160)
-  if (!assetId && !serial) errors.push('Asset ID or Serial Number is required')
+  const projectId = cleanText(input.projectId, 120)
+  const memo = cleanText(input.memo, 400)
 
-  const date = classifyAssessmentDate(input.assessmentDate)
-  if (date.error) errors.push(date.error)
+  if (!assetId && !serial && !projectId && !memo) {
+    errors.push('Requires an Asset ID, Serial Number, Project ID or Memo header/Description')
+  }
+
+  // Financial year and quarter always come from the PO Date.
+  const poDate = classifyPoDate(input.poDate)
+  if (poDate.error) errors.push(poDate.error)
 
   const quantityRaw = input.quantity
   let quantity = parseNumber(quantityRaw)
@@ -215,26 +279,56 @@ export function normalizeAssessment(input, { source = 'manual' } = {}) {
     processor: cleanText(input.processor, 120),
     os: cleanText(input.os, 80),
     vendorName: cleanText(input.vendorName, 160),
-    assessmentDate: date.iso || null,
-    assessmentYear: date.year || null,
-    assessmentQuarter: date.quarter || null,
+    assessmentYear: poDate.year || null,
+    assessmentQuarter: poDate.quarter || null,
     assessmentStatus,
     notes: cleanText(input.notes, 2000),
+
+    // ---- standard 21-column assessment structure ----
+    costType: cleanText(input.costType, 120),
+    projectId,
+    projectName: cleanText(input.projectName, 200),
+    memo,
+    bau: cleanText(input.bau, 60),
+    remarks: cleanText(input.remarks, 2000),
+    costQ1: numberField(input.costQ1, 'Cost Q1', errors),
+    costQ2: numberField(input.costQ2, 'Cost Q2', errors),
+    costQ3: numberField(input.costQ3, 'Cost Q3', errors),
+    costQ4: numberField(input.costQ4, 'Cost Q4', errors),
+    totalBudgetFy: numberField(input.totalBudgetFy, 'Total Budget FY', errors),
+    spendFy: numberField(input.spendFy, 'Spend FY', errors),
+    savings: numberField(input.savings, 'Savings', errors),
+    excess: numberField(input.excess, 'Excess', errors),
+    // PO / PR stay text so leading zeros and alphanumerics survive.
+    po: cleanText(input.po, 80),
+    poDate: poDate.iso || null,
+    pr: cleanText(input.pr, 80),
+    prDate: dateField(input.prDate, 'PR Date', errors),
+
     source,
     issues: [...errors, ...warnings],
   }
 
-  record.dedupeKey = record.assetId || record.serial
-    ? dedupeKeyFor({ assetId: record.assetId, serial: record.serial, assessmentDate: record.assessmentDate || '' })
-    : null
+  record.dedupeKey =
+    record.assetId || record.serial || record.projectId || record.memo
+      ? dedupeKeyFor({
+          assetId: record.assetId,
+          serial: record.serial,
+          projectId: record.projectId,
+          memo: record.memo,
+          poDate: record.poDate || '',
+        })
+      : null
 
   return { record, errors, warnings, valid: errors.length === 0 }
 }
 
 export function validateUser({ name, email, password, role }, { partial = false } = {}) {
   const errors = {}
-  if (!partial || name !== undefined) {
-    if (!cleanText(name)) errors.name = 'Name is required'
+  // Display name is optional: the account is identified by its email and the
+  // API derives a readable name when none is supplied.
+  if (name !== undefined && name !== null && String(name).trim() !== '' && !cleanText(name)) {
+    errors.name = 'Enter a valid name'
   }
   if (!partial || email !== undefined) {
     const value = String(email || '').trim().toLowerCase()
@@ -248,7 +342,8 @@ export function validateUser({ name, email, password, role }, { partial = false 
     else if (!/[A-Za-z]/.test(value) || !/[0-9]/.test(value)) errors.password = 'Include at least one letter and one number'
   }
   if (!partial || role !== undefined) {
-    if (role !== undefined && !['admin', 'manager', 'user'].includes(role)) errors.role = 'Choose a valid role'
+    if (!role) errors.role = 'Choose a role'
+    else if (!['admin', 'manager', 'user'].includes(role)) errors.role = 'Choose a valid role'
   }
   return errors
 }

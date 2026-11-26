@@ -1,6 +1,15 @@
 import * as XLSX from 'xlsx'
 import { detectSheetStructure } from '../../src/lib/excel.js'
-import { ASSET_FIELDS, MAINTENANCE_FIELDS, TICKET_FIELDS, detectMapping, mappedFieldCount } from '../../src/lib/fields.js'
+import {
+  ASSET_FIELDS,
+  MAINTENANCE_FIELDS,
+  STANDARD_ASSESSMENT_KEYS,
+  TICKET_FIELDS,
+  detectMapping,
+  fieldLabel,
+  mappedFieldCount,
+  normalizeHeader,
+} from '../../src/lib/fields.js'
 import { HttpError } from './http.js'
 import { normalizeAssessment } from './validate.js'
 
@@ -43,7 +52,7 @@ function findAssetSheet(sheets) {
   candidates.sort((a, b) => b.mapped - a.mapped)
   const best = candidates[0]
   if (best.mapped === 0) {
-    throw new HttpError(422, 'No recognisable asset columns were found. Expected headings such as Asset ID, Serial Number or Assessment Date.')
+    throw new HttpError(422, 'No recognisable asset columns were found. Expected headings such as Asset ID, Serial Number or PO Date.')
   }
   return best
 }
@@ -130,10 +139,62 @@ function inputFromCells(cells, mapping, extras = {}) {
     processor: valueAt(cells, mapping, 'processor'),
     os: valueAt(cells, mapping, 'os'),
     vendorName: valueAt(cells, mapping, 'supplier') || extras.vendorName || '',
-    assessmentDate: valueAt(cells, mapping, 'assessmentDate'),
     assessmentStatus: valueAt(cells, mapping, 'assessmentStatus'),
     notes: valueAt(cells, mapping, 'notes'),
+    costType: valueAt(cells, mapping, 'costType'),
+    projectId: valueAt(cells, mapping, 'projectId'),
+    projectName: valueAt(cells, mapping, 'projectName'),
+    memo: valueAt(cells, mapping, 'memo'),
+    bau: valueAt(cells, mapping, 'bau'),
+    remarks: valueAt(cells, mapping, 'remarks'),
+    costQ1: valueAt(cells, mapping, 'costQ1'),
+    costQ2: valueAt(cells, mapping, 'costQ2'),
+    costQ3: valueAt(cells, mapping, 'costQ3'),
+    costQ4: valueAt(cells, mapping, 'costQ4'),
+    totalBudgetFy: valueAt(cells, mapping, 'totalBudgetFy'),
+    spendFy: valueAt(cells, mapping, 'spendFy'),
+    savings: valueAt(cells, mapping, 'savings'),
+    excess: valueAt(cells, mapping, 'excess'),
+    po: valueAt(cells, mapping, 'po'),
+    poDate: valueAt(cells, mapping, 'poDate'),
+    pr: valueAt(cells, mapping, 'pr'),
+    prDate: valueAt(cells, mapping, 'prDate'),
   }
+}
+
+/**
+ * Header matching is case-insensitive and whitespace-insensitive everywhere
+ * (normalizeHeader lowercases and strips separators), so "Cost Q1", "COST Q1"
+ * and " cost  q1 " all resolve to the same field. Two columns that normalise to
+ * the same thing are therefore genuine duplicates and worth flagging.
+ */
+function detectDuplicateHeaders(headers) {
+  const byNormalized = new Map()
+  headers.forEach((header, index) => {
+    const normalized = normalizeHeader(header)
+    if (!normalized) return
+    if (!byNormalized.has(normalized)) byNormalized.set(normalized, [])
+    byNormalized.get(normalized).push({ index, header: String(header).trim() })
+  })
+  const exact = [...byNormalized.entries()]
+    .filter(([, columns]) => columns.length > 1)
+    .map(([normalized, columns]) => ({ normalized, columns: columns.map((column) => column.header) }))
+
+  const fieldColumns = new Map()
+  headers.forEach((header, index) => {
+    const normalized = normalizeHeader(header)
+    if (!normalized) return
+    ASSET_FIELDS.forEach((field) => {
+      if (!field.synonyms.some((synonym) => normalizeHeader(synonym) === normalized)) return
+      if (!fieldColumns.has(field.key)) fieldColumns.set(field.key, [])
+      fieldColumns.get(field.key).push({ index, header: String(header).trim() })
+    })
+  })
+  const fields = [...fieldColumns.entries()]
+    .filter(([, columns]) => columns.length > 1)
+    .map(([key, columns]) => ({ field: key, label: fieldLabel(key), columns: columns.map((column) => column.header) }))
+
+  return { exact, fields }
 }
 
 /**
@@ -151,14 +212,35 @@ export function analyseWorkbook(buffer, { fileName = '', overrides = {} } = {}) 
   }
 
   const mappedKeys = Object.keys(mapping).filter((key) => mapping[key] != null)
-  const dateColumn = mapping.assessmentDate
   const missingMandatory = []
-  if (!mappedKeys.includes('assetId') && !mappedKeys.includes('serial')) missingMandatory.push('Asset ID or Serial Number column')
-  if (dateColumn == null) missingMandatory.push('Assessment Date column')
+  const hasIdentity = ['assetId', 'serial', 'projectId', 'memo'].some((key) => mappedKeys.includes(key))
+  if (!hasIdentity) missingMandatory.push('Asset ID, Serial Number, Project ID or Memo header/Description column')
+  // Year/quarter are derived from PO Date, so the column is mandatory.
+  if (mapping.poDate == null) missingMandatory.push('PO Date column')
+
+  const duplicates = detectDuplicateHeaders(structure.headers)
+  const standard = {
+    total: STANDARD_ASSESSMENT_KEYS.length,
+    matched: STANDARD_ASSESSMENT_KEYS.filter((key) => mapping[key] != null).map((key) => ({ key, label: fieldLabel(key) })),
+    missing: STANDARD_ASSESSMENT_KEYS.filter((key) => mapping[key] == null).map((key) => ({ key, label: fieldLabel(key) })),
+  }
+  standard.matchedCount = standard.matched.length
+  standard.isStandardTemplate = standard.matchedCount >= 5
+
+  const usedColumns = new Set(Object.values(mapping))
+  const duplicateColumnNames = new Set(duplicates.exact.flatMap((entry) => entry.columns))
+  const unrecognised = structure.headers.filter((header, index) => {
+    if (String(header).trim() === '') return false
+    if (usedColumns.has(index)) return false
+    if (duplicateColumnNames.has(String(header).trim())) return false
+    return true
+  })
 
   const rows = []
   const seenKeys = new Set()
   const vendorNames = new Set()
+  const vendorNameCounts = new Map()
+  let missingVendorName = 0
 
   structure.rows.forEach((row) => {
     const cells = row.cells
@@ -169,7 +251,12 @@ export function analyseWorkbook(buffer, { fileName = '', overrides = {} } = {}) 
       if (seenKeys.has(result.record.dedupeKey)) dupes.push('Duplicate of an earlier row in this file')
       seenKeys.add(result.record.dedupeKey)
     }
-    if (result.record.vendorName) vendorNames.add(result.record.vendorName)
+    if (result.record.vendorName) {
+      vendorNames.add(result.record.vendorName)
+      vendorNameCounts.set(result.record.vendorName, (vendorNameCounts.get(result.record.vendorName) || 0) + 1)
+    } else {
+      missingVendorName += 1
+    }
     if (result.errors.length === 0 && dupes.length) {
       result.errors.push(...dupes)
       result.valid = false
@@ -193,9 +280,14 @@ export function analyseWorkbook(buffer, { fileName = '', overrides = {} } = {}) 
     mapping,
     overridesApplied: applied,
     missingMandatory,
+    standard,
+    duplicates,
+    unrecognised,
     extras,
     rows,
     vendorNames: [...vendorNames],
+    vendorNameCounts: [...vendorNameCounts.entries()].map(([name, count]) => ({ name, count })),
+    missingVendorName,
   }
 }
 
@@ -235,12 +327,29 @@ export function toPreviewPayload(analysis, existingKeys, { limit = 200 } = {}) {
       department: row.record.department,
       location: row.record.location,
       vendorName: row.record.vendorName,
-      assessmentDate: row.record.assessmentDate,
       assessmentYear: row.record.assessmentYear,
       assessmentQuarter: row.record.assessmentQuarter,
       assessmentStatus: row.record.assessmentStatus,
       price: row.record.price,
       quantity: row.record.quantity,
+      costType: row.record.costType,
+      projectId: row.record.projectId,
+      projectName: row.record.projectName,
+      memo: row.record.memo,
+      bau: row.record.bau,
+      remarks: row.record.remarks,
+      costQ1: row.record.costQ1,
+      costQ2: row.record.costQ2,
+      costQ3: row.record.costQ3,
+      costQ4: row.record.costQ4,
+      totalBudgetFy: row.record.totalBudgetFy,
+      spendFy: row.record.spendFy,
+      savings: row.record.savings,
+      excess: row.record.excess,
+      po: row.record.po,
+      poDate: row.record.poDate,
+      pr: row.record.pr,
+      prDate: row.record.prDate,
     },
   }))
 
@@ -252,7 +361,10 @@ export function toPreviewPayload(analysis, existingKeys, { limit = 200 } = {}) {
     mapping: analysis.mapping,
     mappedFields: Object.keys(analysis.mapping).filter((key) => analysis.mapping[key] != null),
     missingMandatory: analysis.missingMandatory,
-    assessmentDateColumn: analysis.mapping.assessmentDate ?? null,
+    poDateColumn: analysis.mapping.poDate ?? null,
+    standard: analysis.standard,
+    duplicates: analysis.duplicates,
+    unrecognised: analysis.unrecognised,
     supportingSheets: {
       tickets: analysis.extras.tickets?.sheetName || null,
       maintenance: analysis.extras.maintenance?.sheetName || null,

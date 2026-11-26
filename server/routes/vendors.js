@@ -3,6 +3,8 @@ import crypto from 'node:crypto'
 import { one, query } from '../db.js'
 import { authenticate, requireAdmin } from '../auth.js'
 import { HttpError } from '../lib/http.js'
+import { normalizeVendorName } from '../lib/vendors.js'
+import { resolveLocation, resolveLocations } from '../lib/locations.js'
 
 const router = express.Router()
 router.use(authenticate)
@@ -18,6 +20,7 @@ const shape = (row) => ({
   phone: row.phone,
   category: row.category,
   notes: row.notes,
+  hasLocation: Boolean(String(row.city || '').trim() && String(row.state || '').trim()),
   assessmentCount: row.assessment_count != null ? Number(row.assessment_count) : undefined,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
@@ -61,6 +64,10 @@ router.get('/', async (req, res, next) => {
       clauses.push('LOWER(city) = ?')
       params.push(String(req.query.city).toLowerCase())
     }
+    if (req.query.state) {
+      clauses.push('LOWER(state) = ?')
+      params.push(String(req.query.state).toLowerCase())
+    }
     if (req.query.category) {
       clauses.push('LOWER(COALESCE(category, \'\')) = ?')
       params.push(String(req.query.category).toLowerCase())
@@ -68,22 +75,80 @@ router.get('/', async (req, res, next) => {
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
 
     const rows = await query(`SELECT * FROM vendors ${where} ORDER BY city ASC, name ASC`, params)
-    const cities = await query(
+    const groups = await query(
       `SELECT v.city, v.state, COUNT(DISTINCT v.id) AS vendor_count, COUNT(a.id) AS assessment_count
        FROM vendors v LEFT JOIN assessments a ON a.vendor_id = v.id
+       WHERE v.city IS NOT NULL AND TRIM(v.city) <> '' AND v.state IS NOT NULL AND TRIM(v.state) <> ''
        GROUP BY v.city, v.state ORDER BY vendor_count DESC`,
     )
+    // Every city in the master list is resolved against the bundled place
+    // dataset (cached in city_locations), so new cities appear automatically.
+    const rawGroups = groups.map((row) => ({
+      city: row.city,
+      state: row.state,
+      vendorCount: Number(row.vendor_count),
+      assessmentCount: Number(row.assessment_count),
+    }))
+    const located = await resolveLocations(rawGroups)
+
+    // Alias spellings (Bangalore / Bengaluru) resolve to one city key, so they
+    // share a single marker and their vendor counts are combined.
+    const cityMap = new Map()
+    for (const group of located) {
+      if (!group.location) continue
+      const current = cityMap.get(group.location.key)
+      if (current) {
+        current.vendorCount += group.vendorCount
+        current.assessmentCount += group.assessmentCount
+      } else {
+        cityMap.set(group.location.key, {
+          key: group.location.key,
+          city: group.location.city,
+          state: group.location.state,
+          latitude: group.location.latitude,
+          longitude: group.location.longitude,
+          vendorCount: group.vendorCount,
+          assessmentCount: group.assessmentCount,
+        })
+      }
+    }
+    const cities = [...cityMap.values()].sort((a, b) => b.vendorCount - a.vendorCount)
+    const unresolvedLocations = located
+      .filter((group) => !group.location)
+      .map((group) => ({ city: group.city, state: group.state, vendorCount: group.vendorCount }))
+
+    // Vendors carry their resolved location so the panel can filter by the same
+    // canonical city key the map uses.
+    const locationByRaw = new Map(
+      located.map((group) => [`${String(group.city).trim().toLowerCase()}||${String(group.state).trim().toLowerCase()}`, group.location]),
+    )
+    const items = rows.map((row) => ({
+      ...shape(row),
+      location:
+        locationByRaw.get(`${String(row.city || '').trim().toLowerCase()}||${String(row.state || '').trim().toLowerCase()}`) ||
+        null,
+    }))
+
     const categories = await query('SELECT DISTINCT category FROM vendors WHERE category IS NOT NULL ORDER BY category ASC')
+    const totals = await one(
+      `SELECT
+         (SELECT COUNT(*) FROM vendors) AS vendors,
+         (SELECT COUNT(*) FROM assessments WHERE vendor_id IS NOT NULL) AS assessments,
+         (SELECT COUNT(*) FROM vendors WHERE city IS NULL OR TRIM(city) = '' OR state IS NULL OR TRIM(state) = '') AS without_location`,
+    )
+    const unresolvedVendors = unresolvedLocations.reduce((total, group) => total + group.vendorCount, 0)
 
     res.json({
-      items: rows.map(shape),
-      cities: cities.map((row) => ({
-        city: row.city,
-        state: row.state,
-        vendorCount: Number(row.vendor_count),
-        assessmentCount: Number(row.assessment_count),
-      })),
+      items,
+      cities,
+      unresolvedLocations,
       categories: categories.map((row) => row.category),
+      totals: {
+        vendors: Number(totals?.vendors || 0),
+        assessments: Number(totals?.assessments || 0),
+        unmapped: Number(totals?.without_location || 0) + unresolvedVendors,
+        cities: cities.length,
+      },
     })
   } catch (error) {
     next(error)
@@ -97,17 +162,19 @@ router.post('/', requireAdmin, async (req, res, next) => {
 
     const name = text(req.body.name, 160)
     const city = text(req.body.city, 100)
-    const duplicate = await one('SELECT id FROM vendors WHERE LOWER(name) = ? AND LOWER(city) = ?', [name.toLowerCase(), city.toLowerCase()])
-    if (duplicate) return res.status(409).json({ error: 'A vendor with this name already exists in that city' })
+    const normalized = normalizeVendorName(name)
+    const duplicate = await one('SELECT id FROM vendors WHERE name_normalized = ?', [normalized])
+    if (duplicate) return res.status(409).json({ error: 'A vendor with this name already exists in the master list' })
 
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
     await query(
-      `INSERT INTO vendors (id, name, city, state, address, contact_person, email, phone, category, notes, created_at, updated_at, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO vendors (id, name, name_normalized, city, state, address, contact_person, email, phone, category, notes, created_at, updated_at, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         name,
+        normalized,
         city,
         text(req.body.state, 100),
         text(req.body.address, 500),
@@ -122,7 +189,9 @@ router.post('/', requireAdmin, async (req, res, next) => {
       ],
     )
     const created = await one('SELECT * FROM vendors WHERE id = ?', [id])
-    res.status(201).json({ item: shape(created) })
+    // Resolve immediately so the new city is available on the next map read.
+    const location = await resolveLocation(created.city, created.state)
+    res.status(201).json({ item: shape(created), location })
   } catch (error) {
     next(error)
   }
@@ -140,18 +209,18 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
     const nextCity = req.body.city !== undefined ? text(req.body.city, 100) : existing.city
     if (!nextName || !nextCity) return res.status(422).json({ error: 'Vendor name and city are required' })
 
-    const clash = await one('SELECT id FROM vendors WHERE LOWER(name) = ? AND LOWER(city) = ? AND id <> ?', [
-      nextName.toLowerCase(),
-      nextCity.toLowerCase(),
+    const clash = await one('SELECT id FROM vendors WHERE name_normalized = ? AND id <> ?', [
+      normalizeVendorName(nextName),
       existing.id,
     ])
-    if (clash) return res.status(409).json({ error: 'A vendor with this name already exists in that city' })
+    if (clash) return res.status(409).json({ error: 'A vendor with this name already exists in the master list' })
 
     await query(
-      `UPDATE vendors SET name = ?, city = ?, state = ?, address = ?, contact_person = ?, email = ?, phone = ?,
+      `UPDATE vendors SET name = ?, name_normalized = ?, city = ?, state = ?, address = ?, contact_person = ?, email = ?, phone = ?,
          category = ?, notes = ?, updated_at = ? WHERE id = ?`,
       [
         nextName,
+        normalizeVendorName(nextName),
         nextCity,
         req.body.state !== undefined ? text(req.body.state, 100) : existing.state,
         req.body.address !== undefined ? text(req.body.address, 500) : existing.address,
@@ -166,7 +235,8 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
     )
 
     const updated = await one('SELECT * FROM vendors WHERE id = ?', [existing.id])
-    res.json({ item: shape(updated) })
+    const location = await resolveLocation(updated.city, updated.state)
+    res.json({ item: shape(updated), location })
   } catch (error) {
     next(error)
   }

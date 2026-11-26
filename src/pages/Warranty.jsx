@@ -47,7 +47,7 @@ export default function Warranty({ assets, dataset, settings, tickets, maintenan
   return (
     <div className="fade-in">
       <PageHeader
-        title="Warranty &amp; maintenance"
+        title="Warranty &amp; Maintenance"
         description={`Coverage health with a ${settings.warrantyAlertDays}-day expiry alert window, plus repair and support activity.`}
       />
 
@@ -110,7 +110,7 @@ export default function Warranty({ assets, dataset, settings, tickets, maintenan
         <div className="lg:col-span-2">
           <Card className="flex h-full flex-col">
             <CardHeader
-              title="Warranty expiry tracker"
+              title="Warranty Expiry Tracker"
               subtitle="Nearest expiry first — click a row for the full asset record"
               action={
                 <Segmented
@@ -171,10 +171,10 @@ export default function Warranty({ assets, dataset, settings, tickets, maintenan
         </div>
       </div>
 
-      <SectionTitle hint={hasMaintenanceSheet ? `Source: ${dataset.maintenance.sheetName}` : undefined}>Maintenance history</SectionTitle>
+      <SectionTitle hint={hasMaintenanceSheet ? `Source: ${dataset.maintenance.sheetName}` : undefined}>Maintenance History</SectionTitle>
       <Card className="overflow-hidden">
         <CardHeader
-          title={hasMaintenanceSheet ? 'Maintenance worksheet' : 'Service & repair records'}
+          title={hasMaintenanceSheet ? 'Maintenance Worksheet' : 'Service & Repair Records'}
           subtitle={
             hasMaintenanceSheet
               ? `Work orders imported from “${dataset.maintenance.sheetName}”`
@@ -270,7 +270,7 @@ export default function Warranty({ assets, dataset, settings, tickets, maintenan
         </div>
       </Card>
 
-      <SectionTitle hint={support ? `${support.total} tickets` : undefined}>IT support tracking</SectionTitle>
+      <SectionTitle hint={support ? `${support.total} tickets` : undefined}>IT Support Tracking</SectionTitle>
       {support ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -282,13 +282,13 @@ export default function Warranty({ assets, dataset, settings, tickets, maintenan
               { label: 'High priority', value: support.highPriority, foot: `${support.highPriorityOpen} unresolved` },
             ].map((stat) => (
               <div key={stat.label} className="card px-4 py-3">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.07em] faint">{stat.label}</div>
+                <div className="text-[11.5px] font-medium uppercase tracking-[0.05em] faint">{stat.label}</div>
                 <div className="mono mt-1 text-[19px] font-semibold">{stat.value}</div>
                 {stat.foot ? <div className="text-[10.5px] faint">{stat.foot}</div> : null}
               </div>
             ))}
             <div className="card px-4 py-3">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.07em] faint">Average resolution</div>
+              <div className="text-[11.5px] font-medium uppercase tracking-[0.05em] faint">Average resolution</div>
               <div className="mono mt-1 text-[19px] font-semibold">
                 {support.avgResolution == null ? '—' : `${support.avgResolution.toFixed(1)}h`}
               </div>
@@ -316,7 +316,7 @@ export default function Warranty({ assets, dataset, settings, tickets, maintenan
             </ChartFrame>
 
             <Card>
-              <CardHeader title="Latest tickets" subtitle="Most recent rows in the ticket sheet" />
+              <CardHeader title="Latest Tickets" subtitle="Most recent rows in the ticket sheet" />
               <div className="p-4">
                 {tickets.slice(0, 6).map((ticket) => (
                   <div key={ticket.uid} className="flex items-start gap-2 border-b py-2 last:border-0">

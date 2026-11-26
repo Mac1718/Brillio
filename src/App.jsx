@@ -16,6 +16,7 @@ import Login from './pages/Login'
 import Assessments from './pages/Assessments'
 import Analytics from './pages/Analytics'
 import Vendors from './pages/Vendors'
+import Sam from './pages/Sam'
 import Users from './pages/Users'
 import { DEFAULT_SETTINGS } from './lib/format'
 import { usePersistentState, useTheme } from './lib/storage'
@@ -36,8 +37,9 @@ const TITLES = {
   costs: 'Cost & Purchase Analytics',
   reports: 'Reports',
   vendors: 'Vendors',
+  sam: 'SAM – Software Asset Management',
   upload: 'Excel Upload',
-  users: 'User Management',
+  users: 'Create Users',
   settings: 'Settings',
 }
 
@@ -159,32 +161,24 @@ export default function App() {
   const renderPage = () => {
     if (page === 'overview') return <Overview {...pageProps} />
     if (page === 'assessments') return <Assessments notify={notify} refreshKey={refreshToken} onChanged={refresh} />
-    if (page === 'analytics') return <Analytics refreshKey={refreshToken} />
+    if (page === 'analytics') return <Analytics refreshKey={refreshToken} settings={settings} />
     if (page === 'vendors') return <Vendors notify={notify} />
+    if (page === 'sam') return <Sam notify={notify} refreshKey={refreshToken} />
     if (page === 'users' && isAdmin) return <Users notify={notify} />
     if (page === 'upload' && isAdmin) return <UploadPage notify={notify} onImported={refresh} />
     if (page === 'settings') {
       return (
-        <Settings
-          settings={settings}
-          setSettings={setSettings}
-          dataset={dataset}
-          theme={theme}
-          setTheme={setTheme}
-          navigate={navigate}
-          onRemoveDataset={null}
-          user={user}
-        />
+        <Settings theme={theme} setTheme={setTheme} notify={notify} onCleared={refresh} />
       )
     }
     if (!hasData) {
       return (
         <div className="card p-6">
-          <h2 className="text-[16px] font-semibold">No assessment records yet</h2>
+          <h2 className="text-[17px] font-semibold tracking-[-0.014em]">No assessment records available</h2>
           <p className="mt-1 max-w-xl text-[12.5px] muted">
             {isAdmin
-              ? 'Upload an Excel register that includes an Assessment Date column, or add records manually to populate every dashboard.'
-              : 'An administrator needs to import or add assessment records before this module has data.'}
+              ? 'Upload an Excel file to get started. Every dashboard, chart and report is calculated only from records you import or enter.'
+              : 'An administrator needs to upload an Excel file before this module has data.'}
           </p>
           {isAdmin ? (
             <div className="mt-4 flex gap-2">

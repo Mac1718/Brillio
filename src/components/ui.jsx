@@ -34,8 +34,8 @@ export function PageHeader({ title, description, actions }) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-[24px] tracking-[-0.01em]">{title}</h1>
-        {description ? <p className="mt-1 max-w-2xl text-[12.5px] muted">{description}</p> : null}
+        <h1 className="page-title">{title}</h1>
+        {description ? <p className="page-description">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2 no-print">{actions}</div> : null}
     </div>
@@ -45,8 +45,8 @@ export function PageHeader({ title, description, actions }) {
 export function SectionTitle({ children, hint }) {
   return (
     <div className="mb-3 mt-8 flex items-center justify-between gap-3 first:mt-0">
-      <h2 className="text-[11px] font-semibold uppercase tracking-[0.11em] faint">{children}</h2>
-      {hint ? <span className="text-[11.5px] faint">{hint}</span> : null}
+      <h2 className="section-title">{children}</h2>
+      {hint ? <span className="text-[12px] faint">{hint}</span> : null}
     </div>
   )
 }
@@ -57,8 +57,8 @@ export function EmptyState({ icon: Icon = Info, title, description, action }) {
       <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-xl" style={{ background: 'var(--panel-2)', color: 'var(--text-3)' }}>
         <Icon size={20} strokeWidth={1.7} />
       </div>
-      <h3 className="text-[14px] font-semibold">{title}</h3>
-      {description ? <p className="mx-auto mt-1 max-w-md text-[12.5px] muted">{description}</p> : null}
+      <h3 className="text-[15px] font-semibold tracking-[-0.012em]">{title}</h3>
+      {description ? <p className="mx-auto mt-1.5 max-w-md text-[13px] muted">{description}</p> : null}
       {action ? <div className="mt-4 flex justify-center gap-2">{action}</div> : null}
     </div>
   )

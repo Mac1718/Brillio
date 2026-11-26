@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { ArrowRight, FileSpreadsheet, ShieldCheck, UploadCloud } from 'lucide-react'
+import { ArrowRight, Boxes, FileSpreadsheet, PackageCheck, ShieldCheck, UploadCloud, UserCheck, Wallet } from 'lucide-react'
 import KpiGrid from '../components/KpiGrid'
-import { Card, CardHeader, EmptyState, LinkAction, MissingNotice, PageHeader, SectionTitle, Segmented } from '../components/ui'
+import { Card, CardHeader, EmptyState, KpiCard, LinkAction, MissingNotice, PageHeader, SectionTitle, Segmented } from '../components/ui'
+import { useAuth } from '../auth/AuthContext'
 import { BarChartView, ChartFrame, DonutChart, NoChartData, TrendLineView } from '../components/charts'
 import {
   allocationSummary,
@@ -30,7 +31,7 @@ const STATUS_COLORS = {
 export default function Overview({ assets, dataset, settings, navigate, onSelect }) {
   const [granularity, setGranularity] = useState('year')
 
-  if (!dataset) return <Onboarding navigate={navigate} />
+  if (!dataset) return <Onboarding navigate={navigate} settings={settings} />
 
   const categories = categoryDistribution(assets)
   const counts = statusCounts(assets)
@@ -53,7 +54,7 @@ export default function Overview({ assets, dataset, settings, navigate, onSelect
   return (
     <div className="fade-in">
       <PageHeader
-        title="Fleet overview"
+        title="Fleet Overview"
         description={`Live view of ${assets.length} assessed assets from “${dataset.fileName}”. Every number below is derived from the stored assessment records.`}
         actions={
           <>
@@ -77,9 +78,9 @@ export default function Overview({ assets, dataset, settings, navigate, onSelect
         </div>
       ) : null}
 
-      <SectionTitle hint={`Database · updated ${formatDate(dataset.importedAt)}`}>Asset distribution</SectionTitle>
+      <SectionTitle hint={`Database · updated ${formatDate(dataset.importedAt)}`}>Asset Distribution</SectionTitle>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <ChartFrame title="Asset distribution" subtitle="Asset count by category" height={276}>
+        <ChartFrame title="Asset Distribution" subtitle="Asset count by category" height={276}>
           {categories.length ? (
             <DonutChart data={categories} currency={settings.currency} centerLabel="assets" />
           ) : (
@@ -87,7 +88,7 @@ export default function Overview({ assets, dataset, settings, navigate, onSelect
           )}
         </ChartFrame>
 
-        <ChartFrame title="Status overview" subtitle="Current lifecycle state" height={276}>
+        <ChartFrame title="Status Overview" subtitle="Current lifecycle state" height={276}>
           {statusRows.length ? (
             <DonutChart
               data={statusRows}
@@ -101,7 +102,7 @@ export default function Overview({ assets, dataset, settings, navigate, onSelect
         </ChartFrame>
 
         {allocation ? (
-          <ChartFrame title="Asset allocation" subtitle="Assigned vs unassigned assets" height={276}>
+          <ChartFrame title="Asset Allocation" subtitle="Assigned vs unassigned assets" height={276}>
             <DonutChart
               data={allocation}
               currency={settings.currency}
@@ -111,7 +112,7 @@ export default function Overview({ assets, dataset, settings, navigate, onSelect
             />
           </ChartFrame>
         ) : (
-          <ChartFrame title="Warranty health" subtitle="Active vs expiring vs expired" height={276}>
+          <ChartFrame title="Warranty Health" subtitle="Active vs expiring vs expired" height={276}>
             {warrantyRows.length ? (
               <DonutChart
                 data={warrantyRows}
@@ -126,11 +127,11 @@ export default function Overview({ assets, dataset, settings, navigate, onSelect
         )}
       </div>
 
-      <SectionTitle>Purchase &amp; allocation trends</SectionTitle>
+      <SectionTitle>Purchase &amp; Allocation Trends</SectionTitle>
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <ChartFrame
-            title="Asset purchase analysis"
+            title="Asset Purchase Analysis"
             subtitle={trend.dated ? `${trend.dated} assets with a purchase date` : 'Assets purchased over time'}
             action={
               <Segmented
@@ -154,11 +155,11 @@ export default function Overview({ assets, dataset, settings, navigate, onSelect
         </div>
 
         {brands.length ? (
-          <ChartFrame title="Brand-wise distribution" subtitle="Assets by manufacturer" height={288}>
+          <ChartFrame title="Brand-wise Distribution" subtitle="Assets by manufacturer" height={288}>
             <BarChartView data={brands} horizontal name="Assets" />
           </ChartFrame>
         ) : (
-          <ChartFrame title="Department-wise assets" subtitle="Assets by department" height={288}>
+          <ChartFrame title="Department-wise Assets" subtitle="Assets by department" height={288}>
             {departments.length ? (
               <BarChartView data={departments} horizontal name="Assets" />
             ) : (
@@ -173,7 +174,7 @@ export default function Overview({ assets, dataset, settings, navigate, onSelect
         <div className="lg:col-span-2">
           <Card className="overflow-hidden">
             <CardHeader
-              title="Highest-value assets"
+              title="Highest-Value Assets"
               subtitle="Ranked by recorded purchase price"
               action={<LinkAction onClick={() => navigate('inventory')}>Inventory</LinkAction>}
             />
@@ -206,7 +207,7 @@ export default function Overview({ assets, dataset, settings, navigate, onSelect
         </div>
 
         <Card>
-          <CardHeader title="Warranty &amp; support" subtitle="Coverage and maintenance exposure" />
+          <CardHeader title="Warranty &amp; Support" subtitle="Coverage and maintenance exposure" />
           <div className="space-y-3 p-5">
             <div className="grid grid-cols-2 gap-2">
               {[
@@ -225,7 +226,7 @@ export default function Overview({ assets, dataset, settings, navigate, onSelect
             </div>
             {deptCost.length ? (
               <div>
-                <div className="mb-1 text-[10.5px] uppercase tracking-[0.08em] faint">Top department spend</div>
+                <div className="mb-1 text-[11.5px] font-medium uppercase tracking-[0.05em] faint">Top Department Spend</div>
                 {deptCost.slice(0, 3).map((row) => (
                   <div key={row.name} className="flex items-center justify-between border-b py-1.5 text-[11.5px] last:border-0">
                     <span className="truncate" style={{ color: 'var(--text-2)' }}>
@@ -246,7 +247,8 @@ export default function Overview({ assets, dataset, settings, navigate, onSelect
   )
 }
 
-function Onboarding({ navigate }) {
+function Onboarding({ navigate, settings }) {
+  const { isAdmin } = useAuth()
   const steps = [
     { title: '1 · Upload', text: 'Drag in any Excel asset register. Worksheets and headers are detected for you.' },
     { title: '2 · Verify', text: 'Preview the data and confirm the auto-mapped columns. Adjust anything that looks off.' },
@@ -254,6 +256,24 @@ function Onboarding({ navigate }) {
   ]
   return (
     <div className="fade-in">
+      <PageHeader
+        title="Fleet Overview"
+        description="No assessment records available yet. Every statistic starts at zero and is calculated only from records you import or enter."
+      />
+
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCard label="Assessed assets" value="0" icon={Boxes} tone="brand" foot="No records yet" />
+        <KpiCard label="Assigned" value="0" icon={UserCheck} tone="blue" foot="No records yet" />
+        <KpiCard label="Available" value="0" icon={PackageCheck} tone="green" foot="No records yet" />
+        <KpiCard
+          label="Recorded value"
+          value={formatCurrency(0, settings?.currency || 'INR')}
+          icon={Wallet}
+          tone="green"
+          foot="No records yet"
+        />
+      </div>
+
       <Card className="overflow-hidden">
         <div className="grid gap-8 p-7 md:p-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div>
@@ -270,14 +290,20 @@ function Onboarding({ navigate }) {
               hardware specifications, purchase costs and exportable reports.
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
-              <button type="button" className="btn btn-accent" onClick={() => navigate('upload')}>
-                <UploadCloud size={15} /> Upload Excel file
-              </button>
-              <button type="button" className="btn" onClick={downloadTemplate}>
-                <FileSpreadsheet size={15} /> Download template
-              </button>
+              {isAdmin ? (
+                <>
+                  <button type="button" className="btn btn-accent" onClick={() => navigate('upload')}>
+                    <UploadCloud size={15} /> Upload Excel file
+                  </button>
+                  <button type="button" className="btn" onClick={downloadTemplate}>
+                    <FileSpreadsheet size={15} /> Download template
+                  </button>
+                </>
+              ) : (
+                <span className="text-[12px] faint">An administrator needs to upload the Excel register before data appears here.</span>
+              )}
             </div>
-            <p className="mt-3 text-[11px] faint">.xlsx and .xls · processed only in your browser · saved for next time</p>
+            {isAdmin ? <p className="mt-3 text-[11px] faint">.xlsx and .xls · validated on the server before anything is saved</p> : null}
 
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
               {steps.map((step) => (

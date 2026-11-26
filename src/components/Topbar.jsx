@@ -7,10 +7,10 @@ export default function Topbar({ title, dataset, theme, onToggleTheme, onMenu, o
         <Menu size={17} />
       </button>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-semibold">{title}</div>
-        <div className="hidden truncate text-[11px] faint sm:block">
+        <div className="truncate text-[14px] font-semibold tracking-[-0.012em]">{title}</div>
+        <div className="hidden truncate text-[11.5px] faint sm:block">
           {dataset
-            ? `${dataset.recordCount ?? dataset.rows.length} records · ${dataset.mapping.assessmentDate != null ? 'assessment dates stored' : 'no assessment dates'}`
+            ? `${dataset.recordCount ?? dataset.rows.length} records · ${dataset.mapping.poDate != null ? 'PO dates stored' : 'no PO dates'}`
             : 'No assessment records yet'}
         </div>
       </div>

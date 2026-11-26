@@ -28,7 +28,7 @@ export const CHART_COLORS = [
   'var(--chart-8)',
 ]
 
-const AXIS = { fontSize: 10.5, fill: 'var(--text-3)' }
+const AXIS = { fontSize: 11, fill: 'var(--text-3)' }
 
 export function ChartTooltip({ active, payload, label, currency, valueLabel = 'Assets', asCurrency = false }) {
   if (!active || !payload?.length) return null
@@ -37,7 +37,7 @@ export function ChartTooltip({ active, payload, label, currency, valueLabel = 'A
       className="rounded-[10px] border px-3 py-2 text-[12px] shadow-lg"
       style={{ background: 'var(--panel)', borderColor: 'var(--border-strong)', minWidth: 130 }}
     >
-      {label != null && label !== '' ? <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide faint">{label}</div> : null}
+      {label != null && label !== '' ? <div className="mb-1 text-[11.5px] font-medium faint">{label}</div> : null}
       {payload.map((entry) => (
         <div key={entry.dataKey || entry.name} className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5">

@@ -1,12 +1,14 @@
 import express from 'express'
 import crypto from 'node:crypto'
 import { one, query } from '../db.js'
-import { authenticate, hashPassword, requireAdmin } from '../auth.js'
-import { validateUser } from '../lib/validate.js'
+import { authenticate, hashPassword, ROLES, requireAdmin } from '../auth.js'
+import { cleanText, validateUser } from '../lib/validate.js'
 
 const router = express.Router()
 
-router.use(authenticate)
+// Every route here is administrator-only: managers and users get 403 even if
+// they construct requests by hand.
+router.use(authenticate, requireAdmin)
 
 const shape = (row) => ({
   id: row.id,
@@ -18,23 +20,54 @@ const shape = (row) => ({
   updatedAt: row.updated_at,
 })
 
-router.get('/', requireAdmin, async (req, res, next) => {
+const deriveName = (email) =>
+  email
+    .split('@')[0]
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ') || email
+
+const activeAdmins = async () =>
+  Number((await one("SELECT COUNT(*) AS total FROM users WHERE role = 'admin' AND is_active = 1"))?.total || 0)
+
+const badRequest = (res, message, fields) =>
+  res.status(422).json({ error: message, ...(fields ? { fields } : {}) })
+
+router.get('/', async (req, res, next) => {
   try {
-    const rows = await query('SELECT * FROM users ORDER BY created_at ASC')
-    res.json({ items: rows.map(shape) })
+    const clauses = []
+    const params = []
+    const search = String(req.query.search || '').trim().toLowerCase()
+    if (search) {
+      clauses.push('(LOWER(email) LIKE ? OR LOWER(name) LIKE ?)')
+      params.push(`%${search}%`, `%${search}%`)
+    }
+    if (req.query.role) {
+      clauses.push('role = ?')
+      params.push(String(req.query.role))
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
+    const rows = await query(`SELECT * FROM users ${where} ORDER BY created_at ASC`, params)
+    res.json({ items: rows.map(shape), roles: ROLES })
   } catch (error) {
     next(error)
   }
 })
 
-router.post('/', requireAdmin, async (req, res, next) => {
+router.post('/', async (req, res, next) => {
   try {
     const body = req.body || {}
-    const role = body.role || 'user'
-    const errors = validateUser({ name: body.name, email: body.email, password: body.password, role })
-    if (Object.keys(errors).length) return res.status(422).json({ error: 'Please correct the highlighted fields', fields: errors })
+    const email = String(body.email || '').trim().toLowerCase()
+    const password = String(body.password || '')
+    const confirmPassword = body.confirmPassword === undefined ? password : String(body.confirmPassword)
 
-    const email = String(body.email).trim().toLowerCase()
+    const errors = validateUser({ email, password, role: body.role })
+    if (password !== confirmPassword) errors.confirmPassword = 'Passwords do not match'
+    if (Object.keys(errors).length) {
+      return res.status(422).json({ error: Object.values(errors)[0], fields: errors })
+    }
+
     if (await one('SELECT id FROM users WHERE email = ?', [email])) {
       return res.status(409).json({ error: 'An account with this email already exists', fields: { email: 'Already registered' } })
     }
@@ -44,7 +77,7 @@ router.post('/', requireAdmin, async (req, res, next) => {
     await query(
       `INSERT INTO users (id, name, email, password_hash, role, is_active, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
-      [id, String(body.name).trim(), email, await hashPassword(String(body.password)), role, now, now],
+      [id, cleanText(body.name, 120) || deriveName(email), email, await hashPassword(password), body.role, now, now],
     )
     const created = await one('SELECT * FROM users WHERE id = ?', [id])
     res.status(201).json({ user: shape(created) })
@@ -53,13 +86,15 @@ router.post('/', requireAdmin, async (req, res, next) => {
   }
 })
 
-router.patch('/:id', requireAdmin, async (req, res, next) => {
+router.patch('/:id', async (req, res, next) => {
   try {
     const target = await one('SELECT * FROM users WHERE id = ?', [req.params.id])
     if (!target) return res.status(404).json({ error: 'User not found' })
 
     const body = req.body || {}
     const isSelf = target.id === req.user.id
+    const targetIsActiveAdmin = target.role === 'admin' && Number(target.is_active) === 1
+
     if (isSelf && body.role !== undefined && body.role !== target.role) {
       return res.status(403).json({ error: 'You cannot change your own role' })
     }
@@ -71,18 +106,24 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
       { name: body.name, email: body.email, password: body.password, role: body.role },
       { partial: true },
     )
-    if (Object.keys(errors).length) return res.status(422).json({ error: 'Please correct the highlighted fields', fields: errors })
+    if (body.password !== undefined && body.confirmPassword !== undefined && String(body.password) !== String(body.confirmPassword)) {
+      errors.confirmPassword = 'Passwords do not match'
+    }
+    if (Object.keys(errors).length) return badRequest(res, Object.values(errors)[0], errors)
 
-    if (target.role === 'admin' && body.role && body.role !== 'admin') {
-      const admins = await one("SELECT COUNT(*) AS total FROM users WHERE role = 'admin' AND is_active = 1")
-      if (Number(admins.total) <= 1) return res.status(409).json({ error: 'At least one active administrator is required' })
+    // Never let the last active administrator lose admin access.
+    if (targetIsActiveAdmin && body.role !== undefined && body.role !== 'admin' && (await activeAdmins()) <= 1) {
+      return res.status(409).json({ error: 'At least one active administrator is required' })
+    }
+    if (targetIsActiveAdmin && body.isActive === false && (await activeAdmins()) <= 1) {
+      return res.status(409).json({ error: 'At least one active administrator is required' })
     }
 
     const updates = []
     const params = []
     if (body.name !== undefined) {
       updates.push('name = ?')
-      params.push(String(body.name).trim())
+      params.push(cleanText(body.name, 120) || deriveName(target.email))
     }
     if (body.email !== undefined) {
       const email = String(body.email).trim().toLowerCase()
@@ -103,7 +144,7 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
       updates.push('password_hash = ?')
       params.push(await hashPassword(String(body.password)))
     }
-    if (!updates.length) return res.status(422).json({ error: 'Nothing to update' })
+    if (!updates.length) return badRequest(res, 'Nothing to update')
 
     updates.push('updated_at = ?')
     params.push(new Date().toISOString())
@@ -117,14 +158,13 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
   }
 })
 
-router.delete('/:id', requireAdmin, async (req, res, next) => {
+router.delete('/:id', async (req, res, next) => {
   try {
     const target = await one('SELECT * FROM users WHERE id = ?', [req.params.id])
     if (!target) return res.status(404).json({ error: 'User not found' })
     if (target.id === req.user.id) return res.status(403).json({ error: 'You cannot delete your own account' })
-    if (target.role === 'admin') {
-      const admins = await one("SELECT COUNT(*) AS total FROM users WHERE role = 'admin' AND is_active = 1")
-      if (Number(admins.total) <= 1) return res.status(409).json({ error: 'At least one active administrator is required' })
+    if (target.role === 'admin' && Number(target.is_active) === 1 && (await activeAdmins()) <= 1) {
+      return res.status(409).json({ error: 'At least one active administrator is required' })
     }
     await query('DELETE FROM users WHERE id = ?', [target.id])
     res.json({ ok: true })
